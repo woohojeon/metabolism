@@ -1,8 +1,6 @@
 export const instructor = {
   name: 'Jaewon Seol',
-  koreanName: '설재원',
   title: 'Professor',
-  koreanTitle: '교수',
   department: 'Veterinary Biochemistry',
   college: 'College of Veterinary Medicine, Jeonbuk National University',
   image: '/images/prof.jpg',

@@ -17,7 +17,7 @@ const index: Result[] = categories.flatMap((cat) => [
   {
     href: `/${cat.slug}`,
     title: cat.name,
-    subtitle: cat.korean,
+    subtitle: cat.tagline,
     kind: 'Category' as const,
   },
   ...cat.pathways.map((pw) => ({

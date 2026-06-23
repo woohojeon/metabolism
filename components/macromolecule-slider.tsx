@@ -137,7 +137,7 @@ export function MacromoleculeSlider() {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" />
                   <div className="absolute inset-x-0 bottom-0 p-4">
-                    <CategoryLabel className="text-white/80">{cat.korean}</CategoryLabel>
+                    <CategoryLabel className="text-white/80">{cat.tagline}</CategoryLabel>
                     <h3 className="mt-1 text-xl font-extrabold leading-tight text-white">
                       {cat.name}
                     </h3>

@@ -3,7 +3,6 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { SiteHeader } from '@/components/site-header'
 import { SiteFooter } from '@/components/site-footer'
-import { CategoryLabel } from '@/components/article-bits'
 import { categories, getCategory } from '@/lib/pathways'
 
 export function generateStaticParams() {
@@ -51,7 +50,6 @@ export default async function CategoryPage({
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20" />
             <div className="absolute inset-x-0 bottom-0">
               <div className="mx-auto max-w-[1280px] px-4 pb-8 lg:px-6">
-                <CategoryLabel className="text-white/80">{category.korean}</CategoryLabel>
                 <h1 className="mt-1 text-4xl font-extrabold leading-tight text-white sm:text-6xl">
                   {category.name}
                 </h1>

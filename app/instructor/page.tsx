@@ -39,7 +39,7 @@ export default function InstructorPage() {
             <div className="relative aspect-square w-[180px] overflow-hidden rounded-full border-4 border-panel shadow-md">
               <Image
                 src={instructor.image}
-                alt={instructor.koreanName}
+                alt={instructor.name}
                 fill
                 priority
                 className="object-cover"
@@ -48,18 +48,18 @@ export default function InstructorPage() {
             </div>
           </div>
           <div>
-            <CategoryLabel>Instructor · 담당 교수</CategoryLabel>
+            <CategoryLabel>Instructor</CategoryLabel>
             <h1 className="mt-1 text-4xl font-extrabold leading-tight text-foreground sm:text-5xl">
-              {instructor.koreanName}{' '}
+              {instructor.name}{' '}
               <span className="text-2xl font-bold text-neutral-400 sm:text-3xl">
-                {instructor.koreanTitle}
+                {instructor.title}
               </span>
             </h1>
             <p className="mt-1 text-lg font-semibold text-neutral-600">
-              {instructor.name} · {instructor.title}
+              {instructor.department}
             </p>
             <p className="mt-2 text-[15px] text-neutral-700">
-              {instructor.department} — {instructor.college}
+              {instructor.college}
             </p>
             <p className="mt-3 text-[14px] text-neutral-600">{instructor.degree}</p>
 

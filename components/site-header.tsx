@@ -135,7 +135,6 @@ export function SiteHeader() {
                   <h3 className="text-[14px] font-extrabold uppercase tracking-wide text-foreground transition-colors group-hover:text-science-red">
                     {cat.name}
                   </h3>
-                  <span className="text-[11px] text-neutral-400">{cat.korean}</span>
                 </Link>
                 <ul className="mt-2 flex flex-col">
                   {cat.pathways.map((pw) => (

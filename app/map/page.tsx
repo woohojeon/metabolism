@@ -24,13 +24,14 @@ export default function MapPage() {
         </nav>
 
         <header className="mt-6 border-b border-neutral-200 pb-6">
-          <CategoryLabel>대사 지도 · Overview</CategoryLabel>
+          <CategoryLabel>Metabolic Map · Overview</CategoryLabel>
           <h1 className="mt-2 max-w-4xl text-balance text-4xl font-extrabold leading-tight text-foreground sm:text-5xl">
             The Metabolic Map
           </h1>
           <p className="mt-4 max-w-3xl text-[16px] leading-relaxed text-neutral-700">
-            세포 안의 모든 반응은 하나의 거대한 네트워크로 연결됩니다. 탄수화물·지질·단백질·핵산
-            네 갈래의 대사 경로가 어떻게 서로 만나고 갈라지는지 전체 지도에서 한눈에 살펴보세요.
+            Every reaction inside the cell is wired into one vast network. See at a glance how the
+            four branches of metabolism — carbohydrate, lipid, protein, and nucleic acid — meet and
+            diverge across the full map.
           </p>
         </header>
 
@@ -41,7 +42,7 @@ export default function MapPage() {
             target="_blank"
             rel="noopener noreferrer"
             className="group block"
-            title="클릭하면 원본 크기로 열립니다"
+            title="Click to open the full-size image"
           >
             <div className="relative w-full overflow-hidden rounded-sm border border-neutral-200 bg-ink">
               <Image
@@ -56,7 +57,7 @@ export default function MapPage() {
             </div>
           </a>
           <p className="mt-3 text-center text-[12px] text-neutral-500">
-            이미지를 클릭하면 새 탭에서 원본 크기(고해상도)로 볼 수 있습니다.
+            Click the image to view it at full, high resolution in a new tab.
           </p>
         </section>
 
@@ -69,20 +70,17 @@ export default function MapPage() {
           </div>
           <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
-              { slug: 'carbohydrate', name: 'Carbohydrate', korean: '탄수화물' },
-              { slug: 'lipid', name: 'Lipid', korean: '지질' },
-              { slug: 'protein', name: 'Protein', korean: '단백질' },
-              { slug: 'nucleic-acid', name: 'Nucleic acid', korean: '핵산' },
+              { slug: 'carbohydrate', name: 'Carbohydrate' },
+              { slug: 'lipid', name: 'Lipid' },
+              { slug: 'protein', name: 'Protein' },
+              { slug: 'nucleic-acid', name: 'Nucleic acid' },
             ].map((c) => (
               <Link
                 key={c.slug}
                 href={`/${c.slug}`}
                 className="group border border-neutral-200 p-4 transition-colors hover:border-science-red"
               >
-                <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
-                  {c.korean}
-                </p>
-                <p className="mt-1 text-[15px] font-extrabold text-foreground transition-colors group-hover:text-science-red">
+                <p className="text-[15px] font-extrabold text-foreground transition-colors group-hover:text-science-red">
                   {c.name}
                 </p>
               </Link>

@@ -64,7 +64,7 @@ function InstructorTeaser() {
           <div className="relative aspect-square w-[140px] overflow-hidden rounded-full border-4 border-white shadow-md">
             <Image
               src={instructor.image}
-              alt={instructor.koreanName}
+              alt={instructor.name}
               fill
               className="object-cover"
               sizes="140px"
@@ -74,7 +74,6 @@ function InstructorTeaser() {
         <div>
           <CategoryLabel>Instructor</CategoryLabel>
           <h2 className="mt-1 text-2xl font-extrabold leading-tight text-foreground">
-            {instructor.koreanName} <span className="text-neutral-400">·</span>{' '}
             {instructor.name}
           </h2>
           <p className="mt-1 text-[13px] font-semibold text-neutral-600">

@@ -57,14 +57,14 @@ export function EditablePathway({
   }
 
   function resetToOriginal() {
-    if (!window.confirm('이 게시글의 수정 내용을 모두 지우고 원래대로 되돌릴까요?')) return
+    if (!window.confirm('Discard all edits to this article and restore the original?')) return
     clearPathwayEdit(category.slug, pathway.slug)
     setData(pathway)
     setHasEdits(false)
     setEditing(false)
   }
 
-  // draft 헬퍼들 -----------------------------------------------------------
+  // draft helpers -----------------------------------------------------------
   function setField<K extends keyof Pathway>(key: K, value: Pathway[K]) {
     setDraft((d) => ({ ...d, [key]: value }))
   }
@@ -114,7 +114,7 @@ export function EditablePathway({
           {/* Basic fields */}
           <section className="space-y-4 rounded border border-neutral-200 bg-panel/40 p-5">
             <div>
-              <label className={labelClass}>제목 (Name)</label>
+              <label className={labelClass}>Name</label>
               <input
                 className={inputClass}
                 value={draft.name}
@@ -122,7 +122,7 @@ export function EditablePathway({
               />
             </div>
             <div>
-              <label className={labelClass}>반응식 (Equation)</label>
+              <label className={labelClass}>Equation</label>
               <input
                 className={`${inputClass} font-mono`}
                 value={draft.equation}
@@ -130,7 +130,7 @@ export function EditablePathway({
               />
             </div>
             <div>
-              <label className={labelClass}>위치 (Location)</label>
+              <label className={labelClass}>Location</label>
               <input
                 className={inputClass}
                 value={draft.location}
@@ -138,7 +138,7 @@ export function EditablePathway({
               />
             </div>
             <div>
-              <label className={labelClass}>요약 (Summary)</label>
+              <label className={labelClass}>Summary</label>
               <textarea
                 className={inputClass}
                 rows={3}
@@ -150,19 +150,19 @@ export function EditablePathway({
 
           {/* Overview */}
           <ListEditor
-            title="Overview (문단)"
+            title="Overview"
             items={draft.overview}
             onChange={(i, v) => setListItem('overview', i, v)}
             onAdd={() => addListItem('overview')}
             onRemove={(i) => removeListItem('overview', i)}
-            addLabel="+ 문단 추가"
+            addLabel="+ Add paragraph"
             rows={3}
           />
 
           {/* Steps */}
           <section className="rounded border border-neutral-200 p-5">
             <h3 className="mb-3 text-[13px] font-extrabold uppercase tracking-wide text-foreground">
-              Key Steps (단계)
+              Key Steps
             </h3>
             <div className="space-y-4">
               {draft.steps.map((s, i) => (
@@ -176,19 +176,19 @@ export function EditablePathway({
                       onClick={() => removeStep(i)}
                       className="text-[11px] font-bold text-neutral-400 hover:text-science-red"
                     >
-                      삭제 ✕
+                      Remove ✕
                     </button>
                   </div>
                   <input
                     className={`${inputClass} mb-2`}
-                    placeholder="단계 제목"
+                    placeholder="Step title"
                     value={s.title}
                     onChange={(e) => setStep(i, 'title', e.target.value)}
                   />
                   <textarea
                     className={inputClass}
                     rows={2}
-                    placeholder="단계 설명"
+                    placeholder="Step description"
                     value={s.detail}
                     onChange={(e) => setStep(i, 'detail', e.target.value)}
                   />
@@ -200,25 +200,25 @@ export function EditablePathway({
               onClick={addStep}
               className="mt-3 text-[12px] font-bold text-science-red hover:underline"
             >
-              + 단계 추가
+              + Add step
             </button>
           </section>
 
           {/* Regulation */}
           <ListEditor
-            title="Regulation (조절)"
+            title="Regulation"
             items={draft.regulation}
             onChange={(i, v) => setListItem('regulation', i, v)}
             onAdd={() => addListItem('regulation')}
             onRemove={(i) => removeListItem('regulation', i)}
-            addLabel="+ 항목 추가"
+            addLabel="+ Add item"
             rows={2}
           />
 
           {/* Energetics + vetNote */}
           <section className="space-y-4 rounded border border-neutral-200 bg-panel/40 p-5">
             <div>
-              <label className={labelClass}>Energetics (에너지)</label>
+              <label className={labelClass}>Energetics</label>
               <textarea
                 className={inputClass}
                 rows={2}
@@ -227,7 +227,7 @@ export function EditablePathway({
               />
             </div>
             <div>
-              <label className={labelClass}>Veterinary Note (수의학 노트)</label>
+              <label className={labelClass}>Veterinary Note</label>
               <textarea
                 className={inputClass}
                 rows={3}
@@ -267,7 +267,7 @@ export function EditablePathway({
             </span>
             {hasEdits && (
               <span className="rounded-full bg-science-red/10 px-2 py-0.5 text-[10px] font-bold text-science-red">
-                수정됨
+                Edited
               </span>
             )}
           </div>
@@ -353,8 +353,7 @@ export function EditablePathway({
               <div className="absolute inset-x-0 bottom-0 p-3">
                 <Link href={`/${category.slug}`}>
                   <span className="text-[11px] font-bold uppercase tracking-wider text-white">
-                    {category.name} ·{' '}
-                    <span className="text-white/70">{category.korean}</span>
+                    {category.name}
                   </span>
                 </Link>
               </div>
@@ -425,20 +424,20 @@ function EditToolbar({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2 rounded border border-science-red/30 bg-science-red/5 px-4 py-3">
-      <span className="mr-auto text-[12px] font-bold text-science-red">편집 모드</span>
+      <span className="mr-auto text-[12px] font-bold text-science-red">Edit mode</span>
       <button
         type="button"
         onClick={onSave}
         className="rounded bg-science-red px-4 py-1.5 text-[12px] font-bold text-white transition-opacity hover:opacity-90"
       >
-        저장
+        Save
       </button>
       <button
         type="button"
         onClick={onCancel}
         className="rounded border border-neutral-300 px-4 py-1.5 text-[12px] font-bold text-neutral-600 hover:border-neutral-500"
       >
-        취소
+        Cancel
       </button>
       {hasEdits && (
         <button
@@ -446,7 +445,7 @@ function EditToolbar({
           onClick={onReset}
           className="rounded px-3 py-1.5 text-[12px] font-bold text-neutral-400 hover:text-science-red"
         >
-          원래대로 되돌리기
+          Restore original
         </button>
       )}
     </div>
