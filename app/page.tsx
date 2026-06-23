@@ -3,8 +3,8 @@ import Link from 'next/link'
 import { SiteHeader } from '@/components/site-header'
 import { SiteFooter } from '@/components/site-footer'
 import { CategoryLabel, MetaDate, ArrowLink } from '@/components/article-bits'
+import { MacromoleculeSlider } from '@/components/macromolecule-slider'
 import { Wordmark } from '@/components/wordmark'
-import { categories } from '@/lib/pathways'
 import { instructor } from '@/lib/instructor'
 
 function Masthead() {
@@ -52,93 +52,6 @@ function HeroMap() {
           </div>
         </div>
       </Link>
-    </section>
-  )
-}
-
-function CategoryGrid() {
-  return (
-    <section className="mt-12">
-      <div className="border-t-2 border-foreground pt-3">
-        <h2 className="text-lg font-extrabold uppercase tracking-wide">
-          Browse by Macromolecule
-        </h2>
-      </div>
-      <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {categories.map((cat) => (
-          <Link key={cat.slug} href={`/${cat.slug}`} className="group block">
-            <div className="relative aspect-[4/5] w-full overflow-hidden bg-neutral-100">
-              <Image
-                src={cat.image}
-                alt={cat.name}
-                fill
-                className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-                sizes="(min-width: 1024px) 300px, (min-width: 640px) 50vw, 100vw"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" />
-              <div className="absolute inset-x-0 bottom-0 p-4">
-                <CategoryLabel className="text-white/80">{cat.korean}</CategoryLabel>
-                <h3 className="mt-1 text-xl font-extrabold leading-tight text-white">
-                  {cat.name}
-                </h3>
-                <p className="mt-1 text-[12px] leading-snug text-white/80">{cat.tagline}</p>
-              </div>
-            </div>
-            <p className="mt-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-              {cat.pathways.length} Pathways
-              <span className="text-science-red transition-colors group-hover:text-foreground">
-                Explore →
-              </span>
-            </p>
-          </Link>
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function PathwayIndex() {
-  return (
-    <section className="mt-14">
-      <div className="border-t-2 border-foreground pt-3">
-        <div className="flex flex-wrap items-baseline gap-x-3">
-          <h2 className="text-lg font-extrabold uppercase tracking-wide">In This Issue</h2>
-          <p className="text-[11px] uppercase tracking-wide text-neutral-500">
-            Table of Contents <span className="mx-1 text-neutral-300">|</span> 19 Metabolic
-            Pathways
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-6 grid grid-cols-1 gap-x-8 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
-        {categories.map((cat) => (
-          <div key={cat.slug}>
-            <Link
-              href={`/${cat.slug}`}
-              className="group flex items-baseline gap-2 border-b-2 border-foreground pb-2"
-            >
-              <h3 className="text-[15px] font-extrabold uppercase tracking-wide text-foreground transition-colors group-hover:text-science-red">
-                {cat.name}
-              </h3>
-              <span className="text-[11px] text-neutral-400">{cat.korean}</span>
-            </Link>
-            <ul>
-              {cat.pathways.map((p, i) => (
-                <li key={p.slug} className={i === 0 ? '' : 'border-t border-neutral-200'}>
-                  <Link href={`/${cat.slug}/${p.slug}`} className="group block py-3">
-                    <h4 className="text-[14px] font-bold leading-snug text-foreground transition-colors group-hover:text-science-red">
-                      {p.name}
-                    </h4>
-                    <p className="mt-0.5 text-[11px] leading-snug text-neutral-500">
-                      {p.location}
-                    </p>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
     </section>
   )
 }
@@ -194,8 +107,7 @@ export default function HomePage() {
       <main className="mx-auto max-w-[1280px] px-4 pb-16 lg:px-6">
         <Masthead />
         <HeroMap />
-        <CategoryGrid />
-        <PathwayIndex />
+        <MacromoleculeSlider />
         <InstructorTeaser />
         <div className="mt-10 flex justify-end">
           <ArrowLink>Start with Carbohydrate Metabolism</ArrowLink>
