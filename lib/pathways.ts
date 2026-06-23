@@ -14,7 +14,6 @@ export type Pathway = {
 export type Category = {
   slug: string
   name: string
-  korean: string
   tagline: string
   image: string
   intro: string[]
@@ -48,7 +47,6 @@ function p(name: string, location = ''): Pathway {
 function cat(o: {
   slug: string
   name: string
-  korean: string
   tagline: string
   image: string
   items: string[]
@@ -56,7 +54,6 @@ function cat(o: {
   return {
     slug: o.slug,
     name: o.name,
-    korean: o.korean,
     tagline: o.tagline,
     image: o.image,
     intro: [],
@@ -68,7 +65,6 @@ export const categories: Category[] = [
   cat({
     slug: 'metabolism',
     name: 'Metabolism',
-    korean: '물질대사',
     tagline: 'The grammar of energy and matter',
     image: '/images/chemistry.jpg',
     items: ['Metabolism', 'Study Tips for Metabolism'],
@@ -76,7 +72,6 @@ export const categories: Category[] = [
   cat({
     slug: 'digestion-absorption-transportation',
     name: 'Digestion, Absorption, Transportation',
-    korean: '소화 · 흡수 · 운반',
     tagline: 'From the gut to the cell',
     image: '/images/carbohydrate.jpg',
     items: ['Digestion', 'Absorption', 'Transportation'],
@@ -84,7 +79,6 @@ export const categories: Category[] = [
   cat({
     slug: 'carbohydrate-metabolism',
     name: 'Carbohydrate Metabolism',
-    korean: '탄수화물 대사',
     tagline: 'Central energy currency of the cell',
     image: '/images/carbohydrate.jpg',
     items: [
@@ -102,7 +96,6 @@ export const categories: Category[] = [
   cat({
     slug: 'lipid-metabolism',
     name: 'Lipid Metabolism',
-    korean: '지질 대사',
     tagline: 'Storing and burning the body’s richest fuel',
     image: '/images/lipid.jpg',
     items: [
@@ -118,7 +111,6 @@ export const categories: Category[] = [
   cat({
     slug: 'protein-metabolism',
     name: 'Protein Metabolism',
-    korean: '단백질 대사',
     tagline: 'Recycling nitrogen and carbon skeletons',
     image: '/images/protein.jpg',
     items: [
@@ -133,7 +125,6 @@ export const categories: Category[] = [
   cat({
     slug: 'nucleic-acid-metabolism',
     name: 'Nucleic Acid Metabolism',
-    korean: '핵산 대사',
     tagline: 'Building and salvaging the code of life',
     image: '/images/nucleic-acid.jpg',
     items: ['Purine Nucleotides', 'Pyrimidine Nucleotides'],
@@ -141,7 +132,6 @@ export const categories: Category[] = [
   cat({
     slug: 'vitamin-metabolism',
     name: 'Vitamin Metabolism',
-    korean: '비타민 대사',
     tagline: 'Micronutrients that drive the machinery',
     image: '/images/chemistry.jpg',
     items: ['Fat Soluble Vitamins', 'Water Soluble Vitamins'],
@@ -149,7 +139,6 @@ export const categories: Category[] = [
   cat({
     slug: 'comparative-vet-biochem',
     name: 'Comparative Vet. Biochem',
-    korean: '비교 수의생화학',
     tagline: 'How metabolism differs across species',
     image: '/images/protein.jpg',
     items: ['Dog', 'Cat', 'Ruminants', 'Avian'],
@@ -157,7 +146,6 @@ export const categories: Category[] = [
   cat({
     slug: 'hormonal-regulation-and-metabolism',
     name: 'Hormonal Regulation and Metabolism',
-    korean: '호르몬 조절과 대사',
     tagline: 'The chemical signals that tune it all',
     image: '/images/lipid.jpg',
     items: ['Hormone', 'Hormonal Regulation and Metabolism'],

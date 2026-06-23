@@ -1,7 +1,7 @@
 import type { Pathway } from '@/lib/pathways'
 
-// 게시글(대사 경로) 편집 내용을 브라우저 localStorage 에 저장한다.
-// 백엔드가 없는 정적 사이트이므로, 편집 내용은 "이 브라우저"에만 남는다.
+// Persist pathway article edits in the browser's localStorage.
+// This is a static site with no backend, so edits stay only in "this browser".
 
 const PREFIX = 'metabolism-edit:'
 

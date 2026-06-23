@@ -1,0 +1,4 @@
+:HL["/_next/static/chunks/04o-f.3mhyw-1.css","style"]
+:HL["/_next/static/media/2d85136c4a70e605-s.p.0khzvsuhby243.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
+:HL["/_next/static/media/75affa71d1e2f6a7-s.p.0e5c5_wyqqx75.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
+0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"category","param":{"type":"d","key":"lipid-metabolism","siblings":null},"prefetchHints":0,"slots":{"children":{"name":"pathway","param":{"type":"d","key":"lipolysis","siblings":null},"prefetchHints":0,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}}}}}},"staleTime":300,"buildId":"m6IEnqOzSGWaL-82QvOBb"}
