@@ -114,15 +114,15 @@ export function MacromoleculeSlider() {
         </div>
       </div>
 
-      <div className="mt-6 overflow-hidden">
+      <div className="mt-6 overflow-hidden px-3">
         <div
-          className="flex transition-transform duration-500 ease-out"
+          className="-mx-3 flex transition-transform duration-500 ease-out"
           style={{ transform: `translateX(-${index * cardBasis}%)` }}
         >
           {categories.map((cat, ci) => (
             <div
               key={cat.slug}
-              className="shrink-0 px-3 first:pl-0"
+              className="shrink-0 px-3"
               style={{ flexBasis: `${cardBasis}%`, maxWidth: `${cardBasis}%` }}
             >
               {/* Cover image with title overlay */}
