@@ -56,7 +56,7 @@ export function MacromoleculeSlider() {
     if (paused || maxIndex === 0) return
     const id = setInterval(() => {
       setIndex((prev) => (prev >= maxIndex ? 0 : prev + 1))
-    }, 4000)
+    }, 3000)
     return () => clearInterval(id)
   }, [paused, maxIndex])
 
