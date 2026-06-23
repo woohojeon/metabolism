@@ -1,0 +1,34 @@
+export const instructor = {
+  name: 'Jaewon Seol',
+  title: 'Professor',
+  department: 'Veterinary Biochemistry',
+  college: 'College of Veterinary Medicine, Jeonbuk National University',
+  image: '/images/prof.jpg',
+  email: 'jwsseol@jbnu.ac.kr',
+  phone: '063-850-0964',
+  office: 'Room 407, 1st Veterinary Building, Iksan Specialized Campus',
+  degree: 'Ph.D., College of Veterinary Medicine, Jeonbuk National University (2008)',
+  courses: [
+    'Veterinary Biochemistry 1 / 2',
+    'Veterinary Biochemistry Laboratory 1 / 2',
+  ],
+  research: [
+    'Development of anticancer agents for companion animals',
+    'Research on therapeutics for dermatitis',
+    'Development of disease diagnostic kits',
+    'Clinical trial evaluation of veterinary pharmaceuticals',
+  ],
+  career: [
+    { period: '2020 – present', role: 'Professor, College of Veterinary Medicine, Jeonbuk National University' },
+    { period: '2015 – 2020', role: 'Associate Professor, College of Veterinary Medicine, JBNU' },
+    { period: '2012 – 2015', role: 'Assistant Professor, College of Veterinary Medicine, JBNU' },
+    { period: '2010 – 2011', role: 'Postdoctoral fellow, KAIST' },
+    { period: '2009 – 2010', role: 'Postdoctoral fellow, University of Sydney, Australia' },
+  ],
+  publications: [
+    { title: 'Fucoxanthin exerts anti-tumor activity on canine mammary tumor cells', journal: 'ANIMALS', year: '2021' },
+    { title: 'Anti-inflammatory effects of diosmetin in atopic dermatitis model', journal: 'International Immunopharmacology', year: '2020' },
+    { title: 'Naringenin exerts anticancer effects in malignant melanoma', journal: 'International Journal of Molecular Medicine', year: '2020' },
+    { title: 'VEGF-A regulated by progesterone governs uterine angiogenesis during pregnancy', journal: 'EMBO Molecular Medicine', year: '2017' },
+  ],
+}
