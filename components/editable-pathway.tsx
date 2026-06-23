@@ -44,12 +44,6 @@ export function EditablePathway({
     if (!user) setEditing(false)
   }, [user])
 
-  function startEdit() {
-    if (!user) return
-    setDraft(clone(data))
-    setEditing(true)
-  }
-
   function save() {
     savePathwayEdit(category.slug, pathway.slug, draft)
     setData(draft)
@@ -277,15 +271,6 @@ export function EditablePathway({
               </span>
             )}
           </div>
-          {user && (
-            <button
-              type="button"
-              onClick={startEdit}
-              className="shrink-0 rounded border border-neutral-300 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-neutral-600 transition-colors hover:border-science-red hover:text-science-red"
-            >
-              ✎ 이 게시글 수정
-            </button>
-          )}
         </div>
         <h1 className="mt-2 max-w-4xl text-balance text-4xl font-extrabold leading-tight text-foreground sm:text-5xl">
           {data.name}
