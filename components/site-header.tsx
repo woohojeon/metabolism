@@ -18,14 +18,38 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 bg-ink text-white">
       <div className="mx-auto flex h-14 max-w-[1280px] items-center justify-between px-4 lg:px-6">
-        {/* Left: brand attribution */}
-        <div className="flex items-center gap-4">
-          <span className="hidden text-[10px] leading-tight text-white/70 sm:block">
-            brought to you by
-            <br />
-            <span className="text-white/90">Jeonbuk National University</span>
+        {/* Left: brand mark */}
+        <Link
+          href="/"
+          aria-label="Metabolism home"
+          className="flex items-center gap-2 text-white"
+        >
+          <svg
+            width="26"
+            height="26"
+            viewBox="0 0 32 32"
+            fill="none"
+            aria-hidden="true"
+            className="shrink-0"
+          >
+            <path
+              d="M26 16 21 24.66 11 24.66 6 16 11 7.34 21 7.34Z"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinejoin="round"
+            />
+            <line x1="16" y1="16" x2="21" y2="7.34" stroke="currentColor" strokeWidth="1.1" />
+            <line x1="16" y1="16" x2="6" y2="16" stroke="currentColor" strokeWidth="1.1" />
+            <line x1="16" y1="16" x2="21" y2="24.66" stroke="currentColor" strokeWidth="1.1" />
+            <circle cx="16" cy="16" r="2.5" fill="currentColor" />
+            <circle cx="21" cy="7.34" r="2.2" fill="currentColor" />
+            <circle cx="6" cy="16" r="2.2" className="fill-science-red" />
+            <circle cx="21" cy="24.66" r="2.2" fill="currentColor" />
+          </svg>
+          <span className="font-serif text-[17px] leading-none tracking-wide sm:text-[19px]">
+            Metabolism
           </span>
-        </div>
+        </Link>
 
         {/* Center: wordmark */}
         <Link
@@ -146,6 +170,21 @@ export function SiteHeader() {
                       >
                         {pw.name}
                       </Link>
+                      {pw.children.length > 0 && (
+                        <ul className="mb-1 ml-3 flex flex-col pl-3">
+                          {pw.children.map((ch) => (
+                            <li key={ch.slug}>
+                              <Link
+                                href={`/${cat.slug}/${pw.slug}/${ch.slug}`}
+                                onClick={() => setMenuOpen(false)}
+                                className="block py-1 text-[12px] leading-snug text-neutral-500 transition-colors hover:text-science-red"
+                              >
+                                {ch.name}
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </li>
                   ))}
                 </ul>

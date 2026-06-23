@@ -148,6 +148,20 @@ export default async function CategoryPage({
                       </p>
                     </div>
                   </Link>
+                  {p.children.length > 0 && (
+                    <ul className="mb-6 flex flex-wrap gap-2 sm:ml-[3.75rem]">
+                      {p.children.map((child) => (
+                        <li key={child.slug}>
+                          <Link
+                            href={`/${category.slug}/${p.slug}/${child.slug}`}
+                            className="inline-block rounded-full border border-neutral-300 px-3 py-1 text-[12px] font-semibold text-neutral-600 transition-colors hover:border-science-red hover:text-science-red"
+                          >
+                            {child.name}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </li>
               ))}
             </ul>

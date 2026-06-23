@@ -159,14 +159,25 @@ export function MacromoleculeSlider() {
                 <ul className="mt-1">
                   {cat.pathways.map((p, i) => (
                     <li key={p.slug} className={i === 0 ? '' : 'border-t border-neutral-200'}>
-                      <Link href={`/${cat.slug}/${p.slug}`} className="group block py-2.5">
+                      <Link href={`/${cat.slug}/${p.slug}`} className="group block pt-2.5 pb-1">
                         <h4 className="text-[14px] font-bold leading-snug text-foreground transition-colors group-hover:text-science-red">
                           {p.name}
                         </h4>
-                        <p className="mt-0.5 text-[11px] leading-snug text-neutral-500">
-                          {p.location}
-                        </p>
                       </Link>
+                      {p.children.length > 0 && (
+                        <ul className="mb-2 ml-2 flex flex-col pl-2.5">
+                          {p.children.map((ch) => (
+                            <li key={ch.slug}>
+                              <Link
+                                href={`/${cat.slug}/${p.slug}/${ch.slug}`}
+                                className="block py-0.5 text-[11px] leading-snug text-neutral-500 transition-colors hover:text-science-red"
+                              >
+                                {ch.name}
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </li>
                   ))}
                 </ul>

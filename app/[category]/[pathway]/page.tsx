@@ -59,6 +59,32 @@ export default async function PathwayPage({
         {/* Editable article body */}
         <EditablePathway category={category} pathway={pathway} />
 
+        {/* Depth-3 sub-topics */}
+        {pathway.children.length > 0 && (
+          <section className="mt-12">
+            <div className="border-t-2 border-foreground pt-3">
+              <h2 className="text-lg font-extrabold uppercase tracking-wide">Sub-topics</h2>
+            </div>
+            <ul className="mt-4 grid grid-cols-1 gap-x-8 sm:grid-cols-2">
+              {pathway.children.map((child, i) => (
+                <li key={child.slug} className="border-t border-neutral-200">
+                  <Link
+                    href={`/${category.slug}/${pathway.slug}/${child.slug}`}
+                    className="group grid grid-cols-[2.5rem_1fr] items-baseline gap-3 py-4"
+                  >
+                    <span className="font-serif text-2xl leading-none text-neutral-300 transition-colors group-hover:text-science-red">
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    <h3 className="text-[15px] font-bold leading-snug text-foreground transition-colors group-hover:text-science-red">
+                      {child.name}
+                    </h3>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         {/* Prev / Next */}
         <nav className="mt-12 grid grid-cols-2 gap-4 border-t border-neutral-200 pt-6">
           <div>
