@@ -7,6 +7,14 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { CategoryLabel } from '@/components/article-bits'
 import { categories } from '@/lib/pathways'
 
+// Available cover images. As categories scale beyond the number of images,
+// these are cycled (rotated) so every slide still gets a cover.
+const imagePool = Array.from(new Set(categories.map((c) => c.image)))
+
+function coverImage(cat: (typeof categories)[number], i: number) {
+  return cat.image || imagePool[i % imagePool.length]
+}
+
 export function MacromoleculeSlider() {
   const [index, setIndex] = useState(0)
   const count = categories.length
@@ -61,14 +69,14 @@ export function MacromoleculeSlider() {
           className="flex transition-transform duration-500 ease-out"
           style={{ transform: `translateX(-${index * 100}%)` }}
         >
-          {categories.map((cat) => (
+          {categories.map((cat, ci) => (
             <div key={cat.slug} className="w-full shrink-0">
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,360px)_1fr]">
                 {/* Category card */}
                 <Link href={`/${cat.slug}`} className="group block">
                   <div className="relative aspect-[4/5] w-full overflow-hidden bg-neutral-100">
                     <Image
-                      src={cat.image}
+                      src={coverImage(cat, ci)}
                       alt={cat.name}
                       fill
                       className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
