@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { CategoryLabel } from '@/components/article-bits'
 import type { Category, Pathway } from '@/lib/pathways'
 import { clearPathwayEdit, loadPathwayEdit, savePathwayEdit } from '@/lib/edits'
+import { useAuth } from '@/components/auth-provider'
 
 const inputClass =
   'w-full rounded border border-neutral-300 bg-white px-3 py-2 text-[14px] leading-relaxed text-foreground focus:border-science-red focus:outline-none focus:ring-1 focus:ring-science-red'
@@ -28,6 +29,7 @@ export function EditablePathway({
   const [draft, setDraft] = useState<Pathway>(pathway)
   const [editing, setEditing] = useState(false)
   const [hasEdits, setHasEdits] = useState(false)
+  const { user } = useAuth()
 
   useEffect(() => {
     const saved = loadPathwayEdit(category.slug, pathway.slug)
@@ -37,7 +39,13 @@ export function EditablePathway({
     }
   }, [category.slug, pathway.slug, pathway])
 
+  // Exit edit mode if the user logs out mid-edit.
+  useEffect(() => {
+    if (!user) setEditing(false)
+  }, [user])
+
   function startEdit() {
+    if (!user) return
     setDraft(clone(data))
     setEditing(true)
   }
@@ -269,13 +277,15 @@ export function EditablePathway({
               </span>
             )}
           </div>
-          <button
-            type="button"
-            onClick={startEdit}
-            className="shrink-0 rounded border border-neutral-300 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-neutral-600 transition-colors hover:border-science-red hover:text-science-red"
-          >
-            ✎ 이 게시글 수정
-          </button>
+          {user && (
+            <button
+              type="button"
+              onClick={startEdit}
+              className="shrink-0 rounded border border-neutral-300 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-neutral-600 transition-colors hover:border-science-red hover:text-science-red"
+            >
+              ✎ 이 게시글 수정
+            </button>
+          )}
         </div>
         <h1 className="mt-2 max-w-4xl text-balance text-4xl font-extrabold leading-tight text-foreground sm:text-5xl">
           {data.name}

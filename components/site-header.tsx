@@ -42,14 +42,14 @@ export function SiteHeader() {
             type="button"
             aria-label="Search"
             onClick={() => setSearchOpen(true)}
-            className="text-white/90 transition-colors hover:text-white"
+            className="flex size-9 items-center justify-center rounded-full text-white/90 transition-colors hover:bg-white/10 hover:text-white"
           >
             <Search className="size-[18px]" />
           </button>
           <Link
             href="/instructor"
             aria-label="Instructor"
-            className="hidden text-white/90 transition-colors hover:text-white sm:inline"
+            className="hidden size-9 items-center justify-center rounded-full text-white/90 transition-colors hover:bg-white/10 hover:text-white sm:flex"
           >
             <BookOpen className="size-[18px]" />
           </Link>
@@ -58,7 +58,7 @@ export function SiteHeader() {
             <button
               type="button"
               onClick={logout}
-              className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-white/90 transition-colors hover:text-white"
+              className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white/90 transition-colors hover:bg-white/10 hover:text-white"
             >
               <span className="hidden sm:inline">{user}</span>
               <LogOut className="size-[16px]" />
@@ -67,7 +67,7 @@ export function SiteHeader() {
             <button
               type="button"
               onClick={() => setLoginOpen(true)}
-              className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-white/90 transition-colors hover:text-white"
+              className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white/90 transition-colors hover:bg-white/10 hover:text-white"
             >
               <User className="size-[16px]" />
               <span className="hidden sm:inline">Login</span>
@@ -86,7 +86,7 @@ export function SiteHeader() {
             aria-label={menuOpen ? 'Close structure menu' : 'Open structure menu'}
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((v) => !v)}
-            className="flex items-center text-white/90 transition-colors hover:text-white"
+            className="flex size-9 items-center justify-center rounded-full text-white/90 transition-colors hover:bg-white/10 hover:text-white"
           >
             {menuOpen ? <X className="size-6" /> : <Menu className="size-6" />}
           </button>
