@@ -40,6 +40,7 @@ function useVisibleCount() {
 
 export function MacromoleculeSlider() {
   const [index, setIndex] = useState(0)
+  const [paused, setPaused] = useState(false)
   const visible = useVisibleCount()
   const count = categories.length
   const maxIndex = Math.max(0, count - visible)
@@ -48,6 +49,16 @@ export function MacromoleculeSlider() {
   useEffect(() => {
     setIndex((prev) => Math.min(prev, maxIndex))
   }, [maxIndex])
+
+  // Auto-advance one slide at a time; loop back to the start at the end.
+  // Pauses on hover/focus and when there is nothing to scroll.
+  useEffect(() => {
+    if (paused || maxIndex === 0) return
+    const id = setInterval(() => {
+      setIndex((prev) => (prev >= maxIndex ? 0 : prev + 1))
+    }, 4000)
+    return () => clearInterval(id)
+  }, [paused, maxIndex])
 
   const go = (dir: number) => {
     setIndex((prev) => Math.min(Math.max(prev + dir, 0), maxIndex))
@@ -59,7 +70,13 @@ export function MacromoleculeSlider() {
   const canNext = index < maxIndex
 
   return (
-    <section className="mt-12">
+    <section
+      className="mt-12"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocusCapture={() => setPaused(true)}
+      onBlurCapture={() => setPaused(false)}
+    >
       <div className="flex flex-wrap items-end justify-between gap-4 border-t-2 border-foreground pt-3">
         <div>
           <h2 className="text-lg font-extrabold uppercase tracking-wide">
