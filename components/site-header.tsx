@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Menu, X, Search, BookOpen } from 'lucide-react'
 import { Wordmark } from './wordmark'
+import { categories } from '@/lib/pathways'
 
 export function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -64,46 +65,85 @@ export function SiteHeader() {
         </div>
       </div>
 
-      {/* Full structure panel */}
-      {menuOpen && (
-        <div className="border-t border-white/10 bg-ink">
-          <div className="mx-auto max-h-[calc(100vh-3.5rem)] max-w-[1280px] overflow-y-auto px-4 py-6 lg:px-6">
-            <div className="flex items-baseline justify-between border-b border-white/10 pb-3">
-              <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/60">
-                Structure
-              </h2>
-              <Link
-                href="/map"
-                onClick={() => setMenuOpen(false)}
-                className="text-[11px] font-bold uppercase tracking-wider text-science-red transition-colors hover:text-white"
-              >
-                The Metabolic Map
-              </Link>
-            </div>
+      {/* Backdrop */}
+      <div
+        aria-hidden={!menuOpen}
+        onClick={() => setMenuOpen(false)}
+        className={`fixed inset-0 z-40 bg-ink/50 transition-opacity duration-300 ${
+          menuOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+        }`}
+      />
 
-            <ul className="mt-6 flex flex-col gap-1">
-              <li>
-                <Link
-                  href="/instructor"
-                  onClick={() => setMenuOpen(false)}
-                  className="block py-1.5 text-[15px] font-bold uppercase tracking-wide text-white/85 transition-colors hover:text-science-red"
-                >
-                  Instructor
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/map"
-                  onClick={() => setMenuOpen(false)}
-                  className="block py-1.5 text-[15px] font-bold uppercase tracking-wide text-white/85 transition-colors hover:text-science-red"
-                >
-                  The Metabolic Map
-                </Link>
-              </li>
-            </ul>
-          </div>
+      {/* Right-side structure drawer */}
+      <aside
+        aria-hidden={!menuOpen}
+        className={`fixed right-0 top-0 z-50 flex h-dvh w-[88vw] max-w-[420px] flex-col bg-background text-foreground shadow-2xl transition-transform duration-300 ease-out ${
+          menuOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        <div className="flex items-center justify-between border-b-2 border-foreground px-5 py-4">
+          <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-neutral-500">
+            Structure
+          </h2>
+          <button
+            type="button"
+            aria-label="Close structure menu"
+            onClick={() => setMenuOpen(false)}
+            className="text-foreground transition-colors hover:text-science-red"
+          >
+            <X className="size-6" />
+          </button>
         </div>
-      )}
+
+        <nav className="flex-1 overflow-y-auto px-5 py-6">
+          <ul className="flex flex-col gap-7">
+            {categories.map((cat) => (
+              <li key={cat.slug}>
+                <Link
+                  href={`/${cat.slug}`}
+                  onClick={() => setMenuOpen(false)}
+                  className="group flex items-baseline gap-2 border-b border-neutral-200 pb-2"
+                >
+                  <h3 className="text-[14px] font-extrabold uppercase tracking-wide text-foreground transition-colors group-hover:text-science-red">
+                    {cat.name}
+                  </h3>
+                  <span className="text-[11px] text-neutral-400">{cat.korean}</span>
+                </Link>
+                <ul className="mt-2 flex flex-col">
+                  {cat.pathways.map((pw) => (
+                    <li key={pw.slug}>
+                      <Link
+                        href={`/${cat.slug}/${pw.slug}`}
+                        onClick={() => setMenuOpen(false)}
+                        className="block py-1.5 text-[13px] leading-snug text-neutral-600 transition-colors hover:text-science-red"
+                      >
+                        {pw.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+
+          <div className="mt-8 flex flex-col gap-1 border-t-2 border-foreground pt-4">
+            <Link
+              href="/instructor"
+              onClick={() => setMenuOpen(false)}
+              className="block py-1.5 text-[14px] font-extrabold uppercase tracking-wide text-foreground transition-colors hover:text-science-red"
+            >
+              Instructor
+            </Link>
+            <Link
+              href="/map"
+              onClick={() => setMenuOpen(false)}
+              className="block py-1.5 text-[14px] font-extrabold uppercase tracking-wide text-foreground transition-colors hover:text-science-red"
+            >
+              The Metabolic Map
+            </Link>
+          </div>
+        </nav>
+      </aside>
     </header>
   )
 }
