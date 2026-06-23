@@ -1,6 +1,7 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Libre_Caslon_Display, Archivo } from 'next/font/google'
+import { AuthProvider } from '@/components/auth-provider'
 import './globals.css'
 
 const libreCaslon = Libre_Caslon_Display({
@@ -58,7 +59,7 @@ export default function RootLayout({
       className={`${libreCaslon.variable} ${archivo.variable} bg-background`}
     >
       <body className="font-sans antialiased">
-        {children}
+        <AuthProvider>{children}</AuthProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

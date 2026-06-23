@@ -2,12 +2,18 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Menu, X, Search, BookOpen } from 'lucide-react'
+import { Menu, X, Search, BookOpen, User, LogOut } from 'lucide-react'
 import { Wordmark } from './wordmark'
 import { categories } from '@/lib/pathways'
+import { useAuth } from './auth-provider'
+import { SearchDialog } from './search-dialog'
+import { LoginDialog } from './login-dialog'
 
 export function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [loginOpen, setLoginOpen] = useState(false)
+  const { user, logout } = useAuth()
 
   return (
     <header className="sticky top-0 z-50 bg-ink text-white">
@@ -35,7 +41,8 @@ export function SiteHeader() {
           <button
             type="button"
             aria-label="Search"
-            className="hidden text-white/90 transition-colors hover:text-white sm:inline"
+            onClick={() => setSearchOpen(true)}
+            className="text-white/90 transition-colors hover:text-white"
           >
             <Search className="size-[18px]" />
           </button>
@@ -46,9 +53,30 @@ export function SiteHeader() {
           >
             <BookOpen className="size-[18px]" />
           </Link>
+
+          {user ? (
+            <button
+              type="button"
+              onClick={logout}
+              className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-white/90 transition-colors hover:text-white"
+            >
+              <span className="hidden sm:inline">{user}</span>
+              <LogOut className="size-[16px]" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setLoginOpen(true)}
+              className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-white/90 transition-colors hover:text-white"
+            >
+              <User className="size-[16px]" />
+              <span className="hidden sm:inline">Login</span>
+            </button>
+          )}
+
           <Link
             href="/map"
-            className="rounded-full bg-science-red px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90 sm:px-4"
+            className="hidden rounded-full bg-science-red px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90 sm:inline-block sm:px-4"
           >
             The Metabolic Map
           </Link>
@@ -144,6 +172,9 @@ export function SiteHeader() {
           </div>
         </nav>
       </aside>
+
+      <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <LoginDialog open={loginOpen} onClose={() => setLoginOpen(false)} />
     </header>
   )
 }
