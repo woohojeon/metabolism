@@ -74,8 +74,6 @@ export function MacromoleculeSlider() {
       className="mt-12"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
-      onFocusCapture={() => setPaused(true)}
-      onBlurCapture={() => setPaused(false)}
     >
       <div className="flex flex-wrap items-end justify-between gap-4 border-t-2 border-foreground pt-3">
         <div>
