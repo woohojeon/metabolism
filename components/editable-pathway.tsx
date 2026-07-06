@@ -320,7 +320,7 @@ export function EditablePathway({
                   <img
                     src={data.keyStepSvg}
                     alt={`${data.name} key-step reaction diagram`}
-                    className="mx-auto h-auto w-full min-w-[640px] max-w-3xl"
+                    className="h-auto w-full min-w-[640px]"
                   />
                 </div>
               ) : (
