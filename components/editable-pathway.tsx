@@ -4,6 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { CategoryLabel } from '@/components/article-bits'
+import { SlideDownload } from '@/components/slide-download'
 import type { Category, Pathway } from '@/lib/pathways'
 import { clearPathwayEdit, loadPathwayEdit, savePathwayEdit } from '@/lib/edits'
 import { useAuth } from '@/components/auth-provider'
@@ -366,6 +367,9 @@ export function EditablePathway({
         {/* Sidebar */}
         <aside className="lg:col-span-4">
           <div className="sticky top-20 space-y-6">
+            {data.slidesPptx && (
+              <SlideDownload href={data.slidesPptx} filename={`${data.slug}.pptx`} />
+            )}
             <div className="relative aspect-[4/3] w-full overflow-hidden bg-neutral-100">
               <Image
                 src={category.image}

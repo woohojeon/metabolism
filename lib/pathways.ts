@@ -14,6 +14,8 @@ export type Pathway = {
   // Cropped Key-step reaction diagram (SVG under /public), when the source deck
   // provides one. Rendered in place of the text `steps` list.
   keyStepSvg?: string
+  // Downloadable lecture slides (pptx under /public), gated behind login.
+  slidesPptx?: string
   // Depth-3 sub-topics (mirrors the structure/ folder hierarchy).
   children: Pathway[]
 }
@@ -169,13 +171,20 @@ export const categories: Category[] = [
   }),
 ]
 
+// Downloadable lecture-slide decks, keyed by `${categorySlug}/${pathwaySlug}`.
+const pathwaySlides: Record<string, string> = {
+  'carbohydrate-metabolism/glycolysis': '/downloads/glycolysis.pptx',
+}
+
 // Merge PPT-derived Overview text + Key-step diagrams into the pathway tree.
 function injectContent(p: Pathway, categorySlug: string) {
-  const content = pathwayContent[`${categorySlug}/${p.slug}`]
+  const key = `${categorySlug}/${p.slug}`
+  const content = pathwayContent[key]
   if (content) {
     p.overview = content.overview
     if (content.keyStepSvg) p.keyStepSvg = content.keyStepSvg
   }
+  if (pathwaySlides[key]) p.slidesPptx = pathwaySlides[key]
   p.children.forEach((c) => injectContent(c, categorySlug))
 }
 for (const c of categories) {
