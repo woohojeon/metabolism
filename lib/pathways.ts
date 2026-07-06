@@ -1,3 +1,5 @@
+import { pathwayContent } from './pathway-content'
+
 export type Pathway = {
   slug: string
   name: string
@@ -9,6 +11,9 @@ export type Pathway = {
   regulation: string[]
   energetics: string
   vetNote: string
+  // Cropped Key-step reaction diagram (SVG under /public), when the source deck
+  // provides one. Rendered in place of the text `steps` list.
+  keyStepSvg?: string
   // Depth-3 sub-topics (mirrors the structure/ folder hierarchy).
   children: Pathway[]
 }
@@ -94,8 +99,8 @@ export const categories: Category[] = [
     items: [
       'Glycolysis',
       'Gluconeogenesis',
-      ['Other Hexoses and Disaccharides', ['Disaccharides', 'Hexoses']],
-      ['Glycogen Metabolism', ['Glycogenolysis', 'Glycogenesis']],
+      'Other Hexoses and Disaccharides',
+      'Glycogen Metabolism',
       'Fates of Glucose-6-phosphate',
       'Pentose Phosphate Pathway',
       'Fates of Pyruvate',
@@ -112,10 +117,9 @@ export const categories: Category[] = [
       'Lipolysis',
       'Glycerol Metabolism',
       'β-Oxidation',
-      'Ketogenesis',
-      'Ketolysis',
+      'Ketone Bodies',
       'Fatty Acid Synthesis',
-      ['Lipogenesis', ['Triglyceride', 'Glycerophospholipid', 'Sphingolipid', 'Cholesterol']],
+      'Lipogenesis',
     ],
   }),
   cat({
@@ -127,7 +131,7 @@ export const categories: Category[] = [
       'Transamination',
       'Oxidative Deamination',
       'Urea Cycle',
-      ['Keto Acid Oxidation', ['Glucogenic Amino Acids', 'Ketogenic Amino Acids']],
+      'Keto Acid Oxidation',
       'Amino Acid Synthesis',
       'Molecules Derived From Amino Acids',
     ],
@@ -164,6 +168,19 @@ export const categories: Category[] = [
     ],
   }),
 ]
+
+// Merge PPT-derived Overview text + Key-step diagrams into the pathway tree.
+function injectContent(p: Pathway, categorySlug: string) {
+  const content = pathwayContent[`${categorySlug}/${p.slug}`]
+  if (content) {
+    p.overview = content.overview
+    if (content.keyStepSvg) p.keyStepSvg = content.keyStepSvg
+  }
+  p.children.forEach((c) => injectContent(c, categorySlug))
+}
+for (const c of categories) {
+  c.pathways.forEach((p) => injectContent(p, c.slug))
+}
 
 export function getCategory(slug: string) {
   return categories.find((c) => c.slug === slug)

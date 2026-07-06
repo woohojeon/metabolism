@@ -261,10 +261,14 @@ export function EditablePathway({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-x-2">
             <CategoryLabel>{category.name}</CategoryLabel>
-            <span className="text-neutral-300">|</span>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-              {data.location}
-            </span>
+            {data.location && (
+              <>
+                <span className="text-neutral-300">|</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                  {data.location}
+                </span>
+              </>
+            )}
             {hasEdits && (
               <span className="rounded-full bg-science-red/10 px-2 py-0.5 text-[10px] font-bold text-science-red">
                 Edited
@@ -275,67 +279,88 @@ export function EditablePathway({
         <h1 className="mt-2 max-w-4xl text-balance text-4xl font-extrabold leading-tight text-foreground sm:text-5xl">
           {data.name}
         </h1>
-        <p className="mt-4 max-w-3xl rounded-sm bg-panel px-4 py-3 font-mono text-[13px] leading-relaxed text-neutral-700">
-          {data.equation}
-        </p>
-        <p className="mt-4 max-w-3xl text-[18px] leading-relaxed text-foreground">
-          {data.summary}
-        </p>
+        {data.equation && (
+          <p className="mt-4 max-w-3xl rounded-sm bg-panel px-4 py-3 font-mono text-[13px] leading-relaxed text-neutral-700">
+            {data.equation}
+          </p>
+        )}
+        {data.summary && (
+          <p className="mt-4 max-w-3xl text-[18px] leading-relaxed text-foreground">
+            {data.summary}
+          </p>
+        )}
       </header>
 
       <div className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-12">
         {/* Main column */}
         <article className="lg:col-span-8">
-          <section>
-            <div className="border-t-2 border-foreground pt-3">
-              <h2 className="text-lg font-extrabold uppercase tracking-wide">Overview</h2>
-            </div>
-            <div className="mt-4 space-y-4">
-              {data.overview.map((para, i) => (
-                <p key={i} className="text-[16px] leading-relaxed text-neutral-700">
-                  {para}
-                </p>
-              ))}
-            </div>
-          </section>
+          {data.overview.length > 0 && (
+            <section>
+              <div className="border-t-2 border-foreground pt-3">
+                <h2 className="text-lg font-extrabold uppercase tracking-wide">Overview</h2>
+              </div>
+              <div className="mt-4 space-y-4">
+                {data.overview.map((para, i) => (
+                  <p key={i} className="text-[16px] leading-relaxed text-neutral-700">
+                    {para}
+                  </p>
+                ))}
+              </div>
+            </section>
+          )}
 
-          <section className="mt-10">
-            <div className="border-t-2 border-foreground pt-3">
-              <h2 className="text-lg font-extrabold uppercase tracking-wide">Key Steps</h2>
-            </div>
-            <ol className="mt-4">
-              {data.steps.map((step, i) => (
-                <li
-                  key={i}
-                  className={`grid grid-cols-[2.5rem_1fr] gap-4 py-4 ${i === 0 ? '' : 'border-t border-neutral-200'}`}
-                >
-                  <span className="font-serif text-2xl leading-none text-science-red">
-                    {String(i + 1).padStart(2, '0')}
-                  </span>
-                  <div>
-                    <h3 className="text-[15px] font-bold text-foreground">{step.title}</h3>
-                    <p className="mt-1 text-[14px] leading-snug text-neutral-700">
-                      {step.detail}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </section>
+          {(data.keyStepSvg || data.steps.length > 0) && (
+            <section className="mt-10">
+              <div className="border-t-2 border-foreground pt-3">
+                <h2 className="text-lg font-extrabold uppercase tracking-wide">Key Step</h2>
+              </div>
+              {data.keyStepSvg ? (
+                <div className="mt-4 overflow-x-auto rounded border border-neutral-200 bg-white p-4">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={data.keyStepSvg}
+                    alt={`${data.name} key-step reaction diagram`}
+                    className="mx-auto h-auto w-full min-w-[640px] max-w-3xl"
+                  />
+                </div>
+              ) : (
+                <ol className="mt-4">
+                  {data.steps.map((step, i) => (
+                    <li
+                      key={i}
+                      className={`grid grid-cols-[2.5rem_1fr] gap-4 py-4 ${i === 0 ? '' : 'border-t border-neutral-200'}`}
+                    >
+                      <span className="font-serif text-2xl leading-none text-science-red">
+                        {String(i + 1).padStart(2, '0')}
+                      </span>
+                      <div>
+                        <h3 className="text-[15px] font-bold text-foreground">{step.title}</h3>
+                        <p className="mt-1 text-[14px] leading-snug text-neutral-700">
+                          {step.detail}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </section>
+          )}
 
-          <section className="mt-10">
-            <div className="border-t-2 border-foreground pt-3">
-              <h2 className="text-lg font-extrabold uppercase tracking-wide">Regulation</h2>
-            </div>
-            <ul className="mt-4 space-y-3">
-              {data.regulation.map((r, i) => (
-                <li key={i} className="flex gap-3 text-[15px] leading-snug text-neutral-700">
-                  <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-science-red" />
-                  {r}
-                </li>
-              ))}
-            </ul>
-          </section>
+          {data.regulation.length > 0 && (
+            <section className="mt-10">
+              <div className="border-t-2 border-foreground pt-3">
+                <h2 className="text-lg font-extrabold uppercase tracking-wide">Regulation</h2>
+              </div>
+              <ul className="mt-4 space-y-3">
+                {data.regulation.map((r, i) => (
+                  <li key={i} className="flex gap-3 text-[15px] leading-snug text-neutral-700">
+                    <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-science-red" />
+                    {r}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
         </article>
 
         {/* Sidebar */}
@@ -359,29 +384,41 @@ export function EditablePathway({
               </div>
             </div>
 
-            <div className="bg-panel p-5">
-              <h3 className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">
-                Location
-              </h3>
-              <p className="mt-1 text-[14px] font-semibold text-foreground">
-                {data.location}
-              </p>
-              <h3 className="mt-4 text-[11px] font-bold uppercase tracking-wider text-neutral-500">
-                Energetics
-              </h3>
-              <p className="mt-1 text-[14px] leading-snug text-neutral-700">
-                {data.energetics}
-              </p>
-            </div>
+            {(data.location || data.energetics) && (
+              <div className="bg-panel p-5">
+                {data.location && (
+                  <>
+                    <h3 className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">
+                      Location
+                    </h3>
+                    <p className="mt-1 text-[14px] font-semibold text-foreground">
+                      {data.location}
+                    </p>
+                  </>
+                )}
+                {data.energetics && (
+                  <>
+                    <h3 className="mt-4 text-[11px] font-bold uppercase tracking-wider text-neutral-500">
+                      Energetics
+                    </h3>
+                    <p className="mt-1 text-[14px] leading-snug text-neutral-700">
+                      {data.energetics}
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
 
-            <div className="border-l-4 border-science-red bg-panel p-5">
-              <h3 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-science-red">
-                Veterinary Note
-              </h3>
-              <p className="mt-2 text-[14px] leading-snug text-neutral-700">
-                {data.vetNote}
-              </p>
-            </div>
+            {data.vetNote && (
+              <div className="border-l-4 border-science-red bg-panel p-5">
+                <h3 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-science-red">
+                  Veterinary Note
+                </h3>
+                <p className="mt-2 text-[14px] leading-snug text-neutral-700">
+                  {data.vetNote}
+                </p>
+              </div>
+            )}
 
             <div>
               <h3 className="border-b-2 border-foreground pb-2 text-[11px] font-bold uppercase tracking-wider text-foreground">
