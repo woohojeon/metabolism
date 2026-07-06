@@ -161,7 +161,7 @@ export const categories: Category[] = [
     slug: 'hormonal-regulation-and-metabolism',
     name: 'Hormonal Regulation and Metabolism',
     tagline: 'The chemical signals that tune it all',
-    image: '/images/chemistry.jpg',
+    image: '/images/hormonal-regulation-and-metabolism.jpg',
     items: [
       'Hormone',
       ['Hormonal Regulation and Metabolism', ['Insulin', 'Glucagon', 'Epinephrine', 'Cortisol', 'Others']],
