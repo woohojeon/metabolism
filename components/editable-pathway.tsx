@@ -2,6 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
+import { Pencil } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { CategoryLabel } from '@/components/article-bits'
 import { SlideDownload } from '@/components/slide-download'
@@ -97,6 +98,18 @@ export function EditablePathway({
     setDraft((d) => ({ ...d, steps: d.steps.filter((_, j) => j !== i) }))
   }
 
+  // Store the picked image inline as a data URL so it persists in localStorage
+  // (no backend / filesystem on this static site).
+  function setKeyStepImage(file: File) {
+    const reader = new FileReader()
+    reader.onload = () =>
+      setDraft((d) => ({ ...d, keyStepSvg: reader.result as string }))
+    reader.readAsDataURL(file)
+  }
+  function removeKeyStepImage() {
+    setDraft((d) => ({ ...d, keyStepSvg: '' }))
+  }
+
   // ======================================================================
   // EDIT MODE
   // ======================================================================
@@ -165,6 +178,65 @@ export function EditablePathway({
             <h3 className="mb-3 text-[13px] font-extrabold uppercase tracking-wide text-foreground">
               Key Steps
             </h3>
+
+            {/* Key-step diagram image (shown in place of the text steps when set) */}
+            <div className="mb-5 rounded border border-neutral-200 bg-panel/40 p-4">
+              <label className={labelClass}>Key Step diagram (image)</label>
+              {draft.keyStepSvg ? (
+                <div className="mt-2 space-y-3">
+                  <div className="overflow-x-auto rounded border border-neutral-200 bg-white p-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={draft.keyStepSvg}
+                      alt="Key step diagram preview"
+                      className="h-auto w-full min-w-[320px] max-w-full"
+                    />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="cursor-pointer rounded border border-neutral-300 px-3 py-1.5 text-[12px] font-bold text-neutral-600 transition-colors hover:border-neutral-500">
+                      Replace image
+                      <input
+                        type="file"
+                        accept="image/*,.svg"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0]
+                          if (f) setKeyStepImage(f)
+                          e.target.value = ''
+                        }}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={removeKeyStepImage}
+                      className="text-[12px] font-bold text-neutral-400 transition-colors hover:text-science-red"
+                    >
+                      Remove image
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-2">
+                  <label className="inline-block cursor-pointer rounded border border-science-red/40 bg-science-red/5 px-3 py-1.5 text-[12px] font-bold text-science-red transition-colors hover:bg-science-red/10">
+                    Upload image
+                    <input
+                      type="file"
+                      accept="image/*,.svg"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0]
+                        if (f) setKeyStepImage(f)
+                        e.target.value = ''
+                      }}
+                    />
+                  </label>
+                  <p className="mt-2 text-[11px] leading-snug text-neutral-500">
+                    이미지가 없으면 아래 텍스트 스텝 목록이 표시됩니다. (SVG · PNG · JPG)
+                  </p>
+                </div>
+              )}
+            </div>
+
             <div className="space-y-4">
               {draft.steps.map((s, i) => (
                 <div key={i} className="rounded border border-neutral-200 p-3">
@@ -257,6 +329,32 @@ export function EditablePathway({
   // ======================================================================
   return (
     <>
+      {/* Login-gated edit entry point */}
+      {user && (
+        <div className="mt-6 flex items-center justify-end gap-3">
+          {hasEdits && (
+            <button
+              type="button"
+              onClick={resetToOriginal}
+              className="text-[12px] font-bold text-neutral-400 transition-colors hover:text-science-red"
+            >
+              Restore original
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setDraft(clone(data))
+              setEditing(true)
+            }}
+            className="inline-flex items-center gap-1.5 rounded border border-science-red/40 bg-science-red/5 px-4 py-1.5 text-[12px] font-bold text-science-red transition-colors hover:bg-science-red/10"
+          >
+            <Pencil className="size-[14px]" />
+            Edit this page
+          </button>
+        </div>
+      )}
+
       {/* Title block */}
       <header className="mt-6 border-b border-neutral-200 pb-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -329,10 +427,10 @@ export function EditablePathway({
                   {data.steps.map((step, i) => (
                     <li
                       key={i}
-                      className={`grid grid-cols-[2.5rem_1fr] gap-4 py-4 ${i === 0 ? '' : 'border-t border-neutral-200'}`}
+                      className={`grid grid-cols-[3.25rem_1fr] gap-4 py-4 ${i === 0 ? '' : 'border-t border-neutral-200'}`}
                     >
                       <span className="font-serif text-2xl leading-none text-science-red">
-                        {String(i + 1).padStart(2, '0')}
+                        · {String(i + 1).padStart(2, '0')}
                       </span>
                       <div>
                         <h3 className="text-[15px] font-bold text-foreground">{step.title}</h3>
