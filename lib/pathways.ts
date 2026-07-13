@@ -1,3 +1,4 @@
+import { keyStepCanvases } from './keystep-canvases'
 import { pathwayContent } from './pathway-content'
 
 export type Pathway = {
@@ -14,10 +15,56 @@ export type Pathway = {
   // Cropped Key-step reaction diagram (SVG under /public), when the source deck
   // provides one. Rendered in place of the text `steps` list.
   keyStepSvg?: string
+  // A diagram laid out in the browser. Takes precedence over `keyStepSvg`.
+  keyStepCanvas?: KeyStepCanvas
   // Downloadable lecture slides (pptx under /public), gated behind login.
   slidesPptx?: string
+  // Supplementary YouTube lectures, embedded at the foot of the article.
+  videos?: Video[]
   // Depth-3 sub-topics (mirrors the structure/ folder hierarchy).
   children: Pathway[]
+}
+
+export type Video = {
+  // YouTube video id (the `v=` parameter), not a full URL.
+  id: string
+  title: string
+}
+
+// A key-step diagram laid out like a slide: text boxes and arrows placed freely
+// on a canvas. Coordinates are pixels in the canvas' own space (CANVAS_WIDTH
+// wide, `height` tall); the canvas scales to fit the column when displayed.
+export type KeyStepCanvas = {
+  height: number
+  items: KeyStepItem[]
+}
+
+export type KeyStepItem = KeyStepTextItem | KeyStepArrowItem
+
+export type KeyStepTextItem = {
+  id: string
+  kind: 'text'
+  x: number
+  y: number
+  // Set once the box has been resized; unset means "as wide as the text".
+  w?: number
+  // Font size in px; unset means the canvas default.
+  size?: number
+  // A restricted subset of HTML — <i>, <b>, <sup>, <sub>, <br> only — so ions
+  // and formulae (H<sup>+</sup>, H<sub>2</sub>O) and italic enzyme names
+  // survive a round-trip. See sanitizeRich() in key-step-canvas.tsx.
+  html: string
+}
+
+export type KeyStepArrowItem = {
+  id: string
+  kind: 'arrow'
+  x1: number
+  y1: number
+  x2: number
+  y2: number
+  // Draw a head at both ends, for a reversible reaction.
+  double: boolean
 }
 
 export type Category = {
@@ -87,11 +134,9 @@ export const categories: Category[] = [
     name: 'Digestion, Absorption, Transportation',
     tagline: 'From the gut to the cell',
     image: '/images/digestion-absorption-transportation.jpg',
-    items: [
-      ['Digestion', ['Carbohydrate Digestion', 'Lipid Digestion', 'Protein Digestion', 'Nucleic Acid Digestion']],
-      ['Absorption', ['Carbohydrate Absorption', 'Lipid Absorption', 'Protein Absorption', 'Nucleic Acid Absorption']],
-      ['Transportation', ['Carbohydrate Transportation', 'Lipid Transportation', 'Protein Transportation', 'Nucleic Acid Transportation']],
-    ],
+    // The source deck covers all four macromolecules in a single write-up per
+    // stage ("구분하지 말고 하나로 통합"), so these have no per-macromolecule children.
+    items: ['Digestion', 'Absorption', 'Transportation'],
   }),
   cat({
     slug: 'carbohydrate-metabolism',
@@ -164,16 +209,29 @@ export const categories: Category[] = [
     name: 'Hormonal Regulation and Metabolism',
     tagline: 'The chemical signals that tune it all',
     image: '/images/hormonal-regulation-and-metabolism.jpg',
-    items: [
-      'Hormone',
-      ['Hormonal Regulation and Metabolism', ['Insulin', 'Glucagon', 'Epinephrine', 'Cortisol', 'Others']],
-    ],
+    // The deck treats the individual hormones as one write-up ("insulin,
+    // glucagon, epinephrine, cortisol, others 구분X") — hence no children.
+    items: ['Hormone', 'Hormonal Regulation and Metabolism'],
   }),
 ]
 
 // Downloadable lecture-slide decks, keyed by `${categorySlug}/${pathwaySlug}`.
 const pathwaySlides: Record<string, string> = {
   'carbohydrate-metabolism/glycolysis': '/downloads/glycolysis.pptx',
+}
+
+// Supplementary YouTube lectures, keyed by `${categorySlug}/${pathwaySlug}`.
+const pathwayVideos: Record<string, Video[]> = {
+  'carbohydrate-metabolism/glycolysis': [
+    {
+      id: '8qij1m7XUhk',
+      title: 'Glycolysis Pathway Made Simple !! Biochemistry Lecture on Glycolysis',
+    },
+    {
+      id: 'uWOURkrxpH4',
+      title: 'Steps of Glycolysis Reactions Explained – Animation',
+    },
+  ],
 }
 
 // Merge PPT-derived Overview text + Key-step diagrams into the pathway tree.
@@ -185,6 +243,8 @@ function injectContent(p: Pathway, categorySlug: string) {
     if (content.keyStepSvg) p.keyStepSvg = content.keyStepSvg
   }
   if (pathwaySlides[key]) p.slidesPptx = pathwaySlides[key]
+  if (pathwayVideos[key]) p.videos = pathwayVideos[key]
+  if (keyStepCanvases[key]) p.keyStepCanvas = keyStepCanvases[key]
   p.children.forEach((c) => injectContent(c, categorySlug))
 }
 for (const c of categories) {

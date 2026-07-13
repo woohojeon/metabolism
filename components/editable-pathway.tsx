@@ -2,22 +2,29 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { Pencil } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Bold, Pencil, Underline } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { CategoryLabel } from '@/components/article-bits'
 import { SlideDownload } from '@/components/slide-download'
-import type { Category, Pathway } from '@/lib/pathways'
+import { KeyStepCanvas, emptyCanvas, hasCanvas } from '@/components/key-step-canvas'
+import { sanitizeRich } from '@/lib/rich-text'
+import type { Category, Pathway, Video } from '@/lib/pathways'
 import { clearPathwayEdit, loadPathwayEdit, savePathwayEdit } from '@/lib/edits'
 import { useAuth } from '@/components/auth-provider'
 
-const inputClass =
-  'w-full rounded border border-neutral-300 bg-white px-3 py-2 text-[14px] leading-relaxed text-foreground focus:border-science-red focus:outline-none focus:ring-1 focus:ring-science-red'
-
-const labelClass =
-  'mb-1 block text-[10px] font-bold uppercase tracking-wider text-neutral-500'
+// Only the sections the article actually publishes are editable, and only one
+// at a time — editing happens in place, never in a separate form.
+type Section = 'overview' | 'keystep' | 'videos' | 'regulation'
 
 function clone<T>(v: T): T {
   return JSON.parse(JSON.stringify(v)) as T
+}
+
+// Accepts a full watch/share/embed URL or a bare id, and yields the id.
+function youTubeId(input: string) {
+  const s = input.trim()
+  const m = s.match(/(?:v=|youtu\.be\/|\/embed\/|\/shorts\/)([\w-]{11})/)
+  return m ? m[1] : s
 }
 
 export function EditablePathway({
@@ -29,7 +36,7 @@ export function EditablePathway({
 }) {
   const [data, setData] = useState<Pathway>(pathway)
   const [draft, setDraft] = useState<Pathway>(pathway)
-  const [editing, setEditing] = useState(false)
+  const [editing, setEditing] = useState<Section | null>(null)
   const [hasEdits, setHasEdits] = useState(false)
   const { user } = useAuth()
 
@@ -41,339 +48,111 @@ export function EditablePathway({
     }
   }, [category.slug, pathway.slug, pathway])
 
-  // Exit edit mode if the user logs out mid-edit.
+  // Drop out of edit mode if the user logs out mid-edit.
   useEffect(() => {
-    if (!user) setEditing(false)
+    if (!user) setEditing(null)
   }, [user])
+
+  function startEditing(section: Section) {
+    setDraft(clone(data))
+    setEditing(section)
+  }
 
   function save() {
     savePathwayEdit(category.slug, pathway.slug, draft)
     setData(draft)
     setHasEdits(true)
-    setEditing(false)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-
-  function cancel() {
-    setEditing(false)
+    setEditing(null)
   }
 
   function resetToOriginal() {
-    if (!window.confirm('Discard all edits to this article and restore the original?')) return
+    if (!window.confirm('이 페이지의 모든 수정을 취소하고 원본으로 되돌립니다.')) return
     clearPathwayEdit(category.slug, pathway.slug)
     setData(pathway)
     setHasEdits(false)
-    setEditing(false)
+    setEditing(null)
   }
 
-  // draft helpers -----------------------------------------------------------
+  // The section being edited reads from `draft`; every other section from `data`.
+  const shown = (section: Section) => (editing === section ? draft : data)
+
   function setField<K extends keyof Pathway>(key: K, value: Pathway[K]) {
     setDraft((d) => ({ ...d, [key]: value }))
   }
-
-  function setListItem(key: 'overview' | 'regulation', i: number, value: string) {
-    setDraft((d) => {
-      const arr = [...d[key]]
-      arr[i] = value
-      return { ...d, [key]: arr }
-    })
-  }
-  function addListItem(key: 'overview' | 'regulation') {
-    setDraft((d) => ({ ...d, [key]: [...d[key], ''] }))
-  }
-  function removeListItem(key: 'overview' | 'regulation', i: number) {
-    setDraft((d) => ({ ...d, [key]: d[key].filter((_, j) => j !== i) }))
-  }
-
   function setStep(i: number, field: 'title' | 'detail', value: string) {
-    setDraft((d) => {
-      const steps = d.steps.map((s, j) => (j === i ? { ...s, [field]: value } : s))
-      return { ...d, steps }
-    })
+    setDraft((d) => ({
+      ...d,
+      steps: d.steps.map((s, j) => (j === i ? { ...s, [field]: value } : s)),
+    }))
   }
-  function addStep() {
-    setDraft((d) => ({ ...d, steps: [...d.steps, { title: '', detail: '' }] }))
+  function setVideo(i: number, field: keyof Video, value: string) {
+    setDraft((d) => ({
+      ...d,
+      videos: (d.videos ?? []).map((v, j) =>
+        j === i ? { ...v, [field]: field === 'id' ? youTubeId(value) : value } : v,
+      ),
+    }))
   }
-  function removeStep(i: number) {
-    setDraft((d) => ({ ...d, steps: d.steps.filter((_, j) => j !== i) }))
+  function addVideo() {
+    setDraft((d) => ({ ...d, videos: [...(d.videos ?? []), { id: '', title: '' }] }))
   }
-
-  // Store the picked image inline as a data URL so it persists in localStorage
-  // (no backend / filesystem on this static site).
-  function setKeyStepImage(file: File) {
-    const reader = new FileReader()
-    reader.onload = () =>
-      setDraft((d) => ({ ...d, keyStepSvg: reader.result as string }))
-    reader.readAsDataURL(file)
-  }
-  function removeKeyStepImage() {
-    setDraft((d) => ({ ...d, keyStepSvg: '' }))
+  function removeVideo(i: number) {
+    setDraft((d) => ({ ...d, videos: (d.videos ?? []).filter((_, j) => j !== i) }))
   }
 
-  // ======================================================================
-  // EDIT MODE
-  // ======================================================================
-  if (editing) {
-    return (
-      <div className="mt-6">
-        <EditToolbar
-          editing
-          hasEdits={hasEdits}
-          onSave={save}
-          onCancel={cancel}
-          onReset={resetToOriginal}
-        />
 
-        <div className="mt-6 space-y-8">
-          {/* Basic fields */}
-          <section className="space-y-4 rounded border border-neutral-200 bg-panel/40 p-5">
-            <div>
-              <label className={labelClass}>Name</label>
-              <input
-                className={inputClass}
-                value={draft.name}
-                onChange={(e) => setField('name', e.target.value)}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Equation</label>
-              <input
-                className={`${inputClass} font-mono`}
-                value={draft.equation}
-                onChange={(e) => setField('equation', e.target.value)}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Location</label>
-              <input
-                className={inputClass}
-                value={draft.location}
-                onChange={(e) => setField('location', e.target.value)}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Summary</label>
-              <textarea
-                className={inputClass}
-                rows={3}
-                value={draft.summary}
-                onChange={(e) => setField('summary', e.target.value)}
-              />
-            </div>
-          </section>
+  const overview = shown('overview')
+  const keystep = shown('keystep')
+  const videos = shown('videos')
+  const regulation = shown('regulation')
 
-          {/* Overview */}
-          <ListEditor
-            title="Overview"
-            items={draft.overview}
-            onChange={(i, v) => setListItem('overview', i, v)}
-            onAdd={() => addListItem('overview')}
-            onRemove={(i) => removeListItem('overview', i)}
-            addLabel="+ Add paragraph"
-            rows={3}
-          />
+  // A section offers editing only when the article already publishes it. There
+  // is nothing to edit on a field the page does not show.
+  const hasOverview = data.overview.length > 0
+  const hasKeyStep =
+    Boolean(data.keyStepSvg) || data.steps.length > 0 || hasCanvas(data.keyStepCanvas)
+  const hasVideos = Boolean(data.videos?.length) || editing === 'videos'
+  const hasRegulation = data.regulation.length > 0
 
-          {/* Steps */}
-          <section className="rounded border border-neutral-200 p-5">
-            <h3 className="mb-3 text-[13px] font-extrabold uppercase tracking-wide text-foreground">
-              Key Steps
-            </h3>
+  const sectionProps = (section: Section) => ({
+    canEdit: Boolean(user) && editing === null,
+    editing: editing === section,
+    onEdit: () => startEditing(section),
+    onSave: save,
+    onCancel: () => setEditing(null),
+  })
 
-            {/* Key-step diagram image (shown in place of the text steps when set) */}
-            <div className="mb-5 rounded border border-neutral-200 bg-panel/40 p-4">
-              <label className={labelClass}>Key Step diagram (image)</label>
-              {draft.keyStepSvg ? (
-                <div className="mt-2 space-y-3">
-                  <div className="overflow-x-auto rounded border border-neutral-200 bg-white p-3">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={draft.keyStepSvg}
-                      alt="Key step diagram preview"
-                      className="h-auto w-full min-w-[320px] max-w-full"
-                    />
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <label className="cursor-pointer rounded border border-neutral-300 px-3 py-1.5 text-[12px] font-bold text-neutral-600 transition-colors hover:border-neutral-500">
-                      Replace image
-                      <input
-                        type="file"
-                        accept="image/*,.svg"
-                        className="hidden"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0]
-                          if (f) setKeyStepImage(f)
-                          e.target.value = ''
-                        }}
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      onClick={removeKeyStepImage}
-                      className="text-[12px] font-bold text-neutral-400 transition-colors hover:text-science-red"
-                    >
-                      Remove image
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-2">
-                  <label className="inline-block cursor-pointer rounded border border-science-red/40 bg-science-red/5 px-3 py-1.5 text-[12px] font-bold text-science-red transition-colors hover:bg-science-red/10">
-                    Upload image
-                    <input
-                      type="file"
-                      accept="image/*,.svg"
-                      className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0]
-                        if (f) setKeyStepImage(f)
-                        e.target.value = ''
-                      }}
-                    />
-                  </label>
-                  <p className="mt-2 text-[11px] leading-snug text-neutral-500">
-                    이미지가 없으면 아래 텍스트 스텝 목록이 표시됩니다. (SVG · PNG · JPG)
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-4">
-              {draft.steps.map((s, i) => (
-                <div key={i} className="rounded border border-neutral-200 p-3">
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-science-red">
-                      Step {String(i + 1).padStart(2, '0')}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => removeStep(i)}
-                      className="text-[11px] font-bold text-neutral-400 hover:text-science-red"
-                    >
-                      Remove ✕
-                    </button>
-                  </div>
-                  <input
-                    className={`${inputClass} mb-2`}
-                    placeholder="Step title"
-                    value={s.title}
-                    onChange={(e) => setStep(i, 'title', e.target.value)}
-                  />
-                  <textarea
-                    className={inputClass}
-                    rows={2}
-                    placeholder="Step description"
-                    value={s.detail}
-                    onChange={(e) => setStep(i, 'detail', e.target.value)}
-                  />
-                </div>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={addStep}
-              className="mt-3 text-[12px] font-bold text-science-red hover:underline"
-            >
-              + Add step
-            </button>
-          </section>
-
-          {/* Regulation */}
-          <ListEditor
-            title="Regulation"
-            items={draft.regulation}
-            onChange={(i, v) => setListItem('regulation', i, v)}
-            onAdd={() => addListItem('regulation')}
-            onRemove={(i) => removeListItem('regulation', i)}
-            addLabel="+ Add item"
-            rows={2}
-          />
-
-          {/* Energetics + vetNote */}
-          <section className="space-y-4 rounded border border-neutral-200 bg-panel/40 p-5">
-            <div>
-              <label className={labelClass}>Energetics</label>
-              <textarea
-                className={inputClass}
-                rows={2}
-                value={draft.energetics}
-                onChange={(e) => setField('energetics', e.target.value)}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Veterinary Note</label>
-              <textarea
-                className={inputClass}
-                rows={3}
-                value={draft.vetNote}
-                onChange={(e) => setField('vetNote', e.target.value)}
-              />
-            </div>
-          </section>
-        </div>
-
-        <div className="mt-6">
-          <EditToolbar
-            editing
-            hasEdits={hasEdits}
-            onSave={save}
-            onCancel={cancel}
-            onReset={resetToOriginal}
-          />
-        </div>
-      </div>
-    )
-  }
-
-  // ======================================================================
-  // VIEW MODE
-  // ======================================================================
   return (
     <>
-      {/* Login-gated edit entry point */}
-      {user && (
-        <div className="mt-6 flex items-center justify-end gap-3">
-          {hasEdits && (
-            <button
-              type="button"
-              onClick={resetToOriginal}
-              className="text-[12px] font-bold text-neutral-400 transition-colors hover:text-science-red"
-            >
-              Restore original
-            </button>
-          )}
+      {user && hasEdits && (
+        <div className="mt-6 flex items-center justify-end">
           <button
             type="button"
-            onClick={() => {
-              setDraft(clone(data))
-              setEditing(true)
-            }}
-            className="inline-flex items-center gap-1.5 rounded border border-science-red/40 bg-science-red/5 px-4 py-1.5 text-[12px] font-bold text-science-red transition-colors hover:bg-science-red/10"
+            onClick={resetToOriginal}
+            className="text-[12px] font-bold text-neutral-400 transition-colors hover:text-science-red"
           >
-            <Pencil className="size-[14px]" />
-            Edit this page
+            원본으로 되돌리기
           </button>
         </div>
       )}
 
       {/* Title block */}
       <header className="mt-6 border-b border-neutral-200 pb-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-x-2">
-            <CategoryLabel>{category.name}</CategoryLabel>
-            {data.location && (
-              <>
-                <span className="text-neutral-300">|</span>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                  {data.location}
-                </span>
-              </>
-            )}
-            {hasEdits && (
-              <span className="rounded-full bg-science-red/10 px-2 py-0.5 text-[10px] font-bold text-science-red">
-                Edited
+        <div className="flex flex-wrap items-center gap-x-2">
+          <CategoryLabel>{category.name}</CategoryLabel>
+          {data.location && (
+            <>
+              <span className="text-neutral-300">|</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                {data.location}
               </span>
-            )}
-          </div>
+            </>
+          )}
+          {hasEdits && (
+            <span className="rounded-full bg-science-red/10 px-2 py-0.5 text-[10px] font-bold text-science-red">
+              Edited
+            </span>
+          )}
         </div>
         <h1 className="mt-2 max-w-4xl text-balance text-4xl font-extrabold leading-tight text-foreground sm:text-5xl">
           {data.name}
@@ -393,38 +172,52 @@ export function EditablePathway({
       <div className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-12">
         {/* Main column */}
         <article className="lg:col-span-8">
-          {data.overview.length > 0 && (
+          {hasOverview && (
             <section>
-              <div className="border-t-2 border-foreground pt-3">
-                <h2 className="text-lg font-extrabold uppercase tracking-wide">Overview</h2>
-              </div>
-              <div className="mt-4 space-y-4">
-                {data.overview.map((para, i) => (
-                  <p key={i} className="text-[16px] leading-relaxed text-neutral-700">
-                    {para}
-                  </p>
-                ))}
-              </div>
+              <SectionHeading title="Overview" {...sectionProps('overview')} />
+              {editing === 'overview' ? (
+                // The whole body is edited as one block, Enter starting a new paragraph.
+                <RichBody
+                  paragraphs={overview.overview}
+                  onChange={(paras) => setField('overview', paras)}
+                />
+              ) : (
+                <div className="mt-4 space-y-4">
+                  {overview.overview.map((para, i) => (
+                    <p
+                      key={i}
+                      className="text-[16px] leading-relaxed text-neutral-700"
+                      dangerouslySetInnerHTML={{ __html: sanitizeRich(para) }}
+                    />
+                  ))}
+                </div>
+              )}
             </section>
           )}
 
-          {(data.keyStepSvg || data.steps.length > 0) && (
+          {hasKeyStep && (
             <section className="mt-10">
-              <div className="border-t-2 border-foreground pt-3">
-                <h2 className="text-lg font-extrabold uppercase tracking-wide">Key Step</h2>
-              </div>
-              {data.keyStepSvg ? (
+              <SectionHeading title="Key Step" {...sectionProps('keystep')} />
+
+              {/* A diagram laid out on the page wins over the imported image. */}
+              {keystep.keyStepCanvas ? (
+                <KeyStepCanvas
+                  canvas={keystep.keyStepCanvas}
+                  editing={editing === 'keystep'}
+                  onChange={(canvas) => setField('keyStepCanvas', canvas)}
+                />
+              ) : keystep.keyStepSvg ? (
                 <div className="mt-4 overflow-x-auto rounded border border-neutral-200 bg-white p-4">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={data.keyStepSvg}
-                    alt={`${data.name} key-step reaction diagram`}
+                    src={keystep.keyStepSvg}
+                    alt={`${keystep.name} key-step reaction diagram`}
                     className="h-auto w-full min-w-[640px]"
                   />
                 </div>
               ) : (
                 <ol className="mt-4">
-                  {data.steps.map((step, i) => (
+                  {keystep.steps.map((step, i) => (
                     <li
                       key={i}
                       className={`grid grid-cols-[3.25rem_1fr] gap-4 py-4 ${i === 0 ? '' : 'border-t border-neutral-200'}`}
@@ -432,32 +225,149 @@ export function EditablePathway({
                       <span className="font-serif text-2xl leading-none text-science-red">
                         · {String(i + 1).padStart(2, '0')}
                       </span>
-                      <div>
-                        <h3 className="text-[15px] font-bold text-foreground">{step.title}</h3>
-                        <p className="mt-1 text-[14px] leading-snug text-neutral-700">
-                          {step.detail}
-                        </p>
+                      <div className="space-y-1">
+                        <InlineText
+                          as="h3"
+                          editing={editing === 'keystep'}
+                          value={step.title}
+                          onChange={(v) => setStep(i, 'title', v)}
+                          placeholder="단계 제목"
+                          className="text-[15px] font-bold text-foreground"
+                        />
+                        <InlineText
+                          editing={editing === 'keystep'}
+                          value={step.detail}
+                          onChange={(v) => setStep(i, 'detail', v)}
+                          placeholder="단계 설명"
+                          className="text-[14px] leading-snug text-neutral-700"
+                        />
                       </div>
                     </li>
                   ))}
                 </ol>
               )}
+
+              {/* A pathway with no diagram yet starts one from an empty canvas. */}
+              {editing === 'keystep' && !keystep.keyStepCanvas && (
+                <button
+                  type="button"
+                  onClick={() => setField('keyStepCanvas', emptyCanvas())}
+                  className="mt-4 rounded border border-science-red/40 bg-science-red/5 px-3 py-1.5 text-[12px] font-bold text-science-red transition-colors hover:bg-science-red/10"
+                >
+                  다이어그램 직접 그리기
+                </button>
+              )}
             </section>
           )}
 
-          {data.regulation.length > 0 && (
+          {hasVideos && (
             <section className="mt-10">
-              <div className="border-t-2 border-foreground pt-3">
-                <h2 className="text-lg font-extrabold uppercase tracking-wide">Regulation</h2>
-              </div>
-              <ul className="mt-4 space-y-3">
-                {data.regulation.map((r, i) => (
-                  <li key={i} className="flex gap-3 text-[15px] leading-snug text-neutral-700">
-                    <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-science-red" />
-                    {r}
-                  </li>
+              <SectionHeading title="Videos" {...sectionProps('videos')} />
+              <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2">
+                {(videos.videos ?? []).map((v, i) => (
+                  <figure key={i}>
+                    <div className="aspect-video w-full overflow-hidden rounded border border-neutral-200 bg-black">
+                      {v.id ? (
+                        <iframe
+                          src={`https://www.youtube-nocookie.com/embed/${v.id}`}
+                          title={v.title}
+                          loading="lazy"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          allowFullScreen
+                          className="size-full"
+                        />
+                      ) : (
+                        <div className="flex size-full items-center justify-center text-[12px] font-bold text-neutral-400">
+                          유튜브 링크를 붙여넣으세요
+                        </div>
+                      )}
+                    </div>
+
+                    {editing === 'videos' ? (
+                      <div className="mt-2 space-y-2">
+                        <InlineText
+                          editing
+                          value={v.title}
+                          onChange={(val) => setVideo(i, 'title', val)}
+                          placeholder="영상 제목"
+                          className="text-[13px] font-semibold leading-snug text-neutral-700"
+                        />
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="url"
+                            defaultValue={v.id ? `https://www.youtube.com/watch?v=${v.id}` : ''}
+                            onChange={(e) => setVideo(i, 'id', e.target.value)}
+                            placeholder="https://www.youtube.com/watch?v=..."
+                            className="w-full rounded border border-neutral-300 px-2 py-1 font-mono text-[11px] text-neutral-600 focus:border-science-red focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeVideo(i)}
+                            className="shrink-0 rounded border border-neutral-300 px-2 py-1 text-[11px] font-bold text-neutral-400 transition-colors hover:border-science-red hover:text-science-red"
+                          >
+                            삭제
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <figcaption className="mt-2 text-[13px] font-semibold leading-snug text-neutral-700">
+                        <a
+                          href={`https://www.youtube.com/watch?v=${v.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="transition-colors hover:text-science-red"
+                        >
+                          {v.title}
+                        </a>
+                      </figcaption>
+                    )}
+                  </figure>
                 ))}
-              </ul>
+              </div>
+              {editing === 'videos' && (
+                <button
+                  type="button"
+                  onClick={addVideo}
+                  className="mt-4 text-[12px] font-bold text-science-red hover:underline"
+                >
+                  + 영상 추가
+                </button>
+              )}
+            </section>
+          )}
+
+          {hasRegulation && (
+            <section className="mt-10">
+              <SectionHeading title="Regulation" {...sectionProps('regulation')} />
+              {editing === 'regulation' ? (
+                <InlineText
+                  editing
+                  value={regulation.regulation.join('\n')}
+                  onChange={(v) =>
+                    setField(
+                      'regulation',
+                      v
+                        .split('\n')
+                        .map((line) => line.trim())
+                        .filter(Boolean),
+                    )
+                  }
+                  placeholder="조절 항목"
+                  className="mt-4 whitespace-pre-wrap text-[15px] leading-relaxed text-neutral-700"
+                />
+              ) : (
+                <ul className="mt-4 space-y-3">
+                  {regulation.regulation.map((r, i) => (
+                    <li key={i} className="flex gap-3 text-[15px] leading-snug text-neutral-700">
+                      <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-science-red" />
+                      {r}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {editing === 'regulation' && (
+                <p className="mt-2 text-[11px] text-neutral-500">한 줄이 하나의 항목이 됩니다.</p>
+              )}
             </section>
           )}
         </article>
@@ -513,12 +423,10 @@ export function EditablePathway({
 
             {data.vetNote && (
               <div className="border-l-4 border-science-red bg-panel p-5">
-                <h3 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-science-red">
+                <h3 className="text-[11px] font-bold uppercase tracking-wider text-science-red">
                   Veterinary Note
                 </h3>
-                <p className="mt-2 text-[14px] leading-snug text-neutral-700">
-                  {data.vetNote}
-                </p>
+                <p className="mt-2 text-[14px] leading-snug text-neutral-700">{data.vetNote}</p>
               </div>
             )}
 
@@ -548,97 +456,180 @@ export function EditablePathway({
   )
 }
 
-// ------------------------------------------------------------------------
-function EditToolbar({
-  hasEdits,
-  onSave,
-  onCancel,
-  onReset,
+// ---------------------------------------------------------------------------
+// The article body, edited as one block: the paragraphs keep their published
+// styling, Enter starts a new one, and bold/underline apply to the selection.
+function RichBody({
+  paragraphs,
+  onChange,
 }: {
-  editing: boolean
-  hasEdits: boolean
-  onSave: () => void
-  onCancel: () => void
-  onReset: () => void
+  paragraphs: string[]
+  onChange: (paragraphs: string[]) => void
 }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const seeded = useRef(false)
+
+  // Seed the DOM once. Writing the value back on every keystroke would rebuild
+  // the nodes and throw the caret to the start.
+  useEffect(() => {
+    if (ref.current && !seeded.current) {
+      ref.current.innerHTML = paragraphs.map((p) => `<p>${sanitizeRich(p)}</p>`).join('')
+      seeded.current = true
+    }
+  }, [paragraphs])
+
+  function read(el: HTMLElement) {
+    // Enter yields <p> in some browsers and <div> in others; either is a paragraph.
+    const blocks = Array.from(el.children).filter((c) => ['P', 'DIV'].includes(c.tagName))
+    const paras = blocks.length
+      ? blocks.map((b) => sanitizeRich(b.innerHTML))
+      : [sanitizeRich(el.innerHTML)]
+    onChange(paras.map((p) => p.trim()).filter(Boolean))
+  }
+
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded border border-science-red/30 bg-science-red/5 px-4 py-3">
-      <span className="mr-auto text-[12px] font-bold text-science-red">Edit mode</span>
-      <button
-        type="button"
-        onClick={onSave}
-        className="rounded bg-science-red px-4 py-1.5 text-[12px] font-bold text-white transition-opacity hover:opacity-90"
-      >
-        Save
-      </button>
-      <button
-        type="button"
-        onClick={onCancel}
-        className="rounded border border-neutral-300 px-4 py-1.5 text-[12px] font-bold text-neutral-600 hover:border-neutral-500"
-      >
-        Cancel
-      </button>
-      {hasEdits && (
-        <button
-          type="button"
-          onClick={onReset}
-          className="rounded px-3 py-1.5 text-[12px] font-bold text-neutral-400 hover:text-science-red"
-        >
-          Restore original
-        </button>
-      )}
+    <div className="mt-4">
+      <div className="mb-2 flex items-center gap-1">
+        {[
+          { cmd: 'bold', label: <Bold className="size-[13px]" />, title: '굵게' },
+          { cmd: 'underline', label: <Underline className="size-[13px]" />, title: '밑줄' },
+        ].map((b) => (
+          <button
+            key={b.cmd}
+            type="button"
+            title={b.title}
+            // Keep the caret in the body — a focus change would collapse the
+            // selection before execCommand runs.
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => document.execCommand(b.cmd, false)}
+            className="flex size-7 items-center justify-center rounded border border-neutral-300 bg-white text-neutral-600 transition-colors hover:border-science-red hover:text-science-red"
+          >
+            {b.label}
+          </button>
+        ))}
+      </div>
+
+      <div
+        ref={ref}
+        contentEditable
+        suppressContentEditableWarning
+        role="textbox"
+        aria-multiline="true"
+        className="inline-edit min-h-40 text-[16px] leading-relaxed text-neutral-700 [&>div]:mb-4 [&>p]:mb-4"
+        onInput={(e) => read(e.currentTarget)}
+        onPaste={(e) => {
+          e.preventDefault()
+          document.execCommand('insertText', false, e.clipboardData.getData('text/plain'))
+        }}
+      />
     </div>
   )
 }
 
-function ListEditor({
-  title,
-  items,
+// ---------------------------------------------------------------------------
+// A field that keeps its published styling and becomes typable in place.
+//
+// The DOM is seeded only when edit mode opens; keystrokes after that flow one
+// way (DOM -> draft). Writing the value back on every keystroke would reset the
+// node and throw the caret to the start.
+function InlineText({
+  value,
   onChange,
-  onAdd,
-  onRemove,
-  addLabel,
-  rows,
+  editing,
+  className,
+  placeholder,
+  as: Tag = 'p',
+}: {
+  value: string
+  onChange: (v: string) => void
+  editing: boolean
+  className?: string
+  placeholder?: string
+  as?: 'p' | 'h3'
+}) {
+  const ref = useRef<HTMLElement>(null)
+  const seeded = useRef(false)
+
+  useEffect(() => {
+    if (!editing) {
+      seeded.current = false
+      return
+    }
+    if (ref.current && !seeded.current) {
+      ref.current.innerText = value
+      seeded.current = true
+    }
+  }, [editing, value])
+
+  if (!editing) return <Tag className={className}>{value}</Tag>
+
+  return (
+    <Tag
+      ref={ref as never}
+      contentEditable
+      suppressContentEditableWarning
+      role="textbox"
+      aria-multiline="true"
+      data-placeholder={placeholder}
+      className={`inline-edit ${className ?? ''}`}
+      onInput={(e) => onChange((e.currentTarget as HTMLElement).innerText)}
+      onPaste={(e) => {
+        // Paste as plain text so pasted markup can't leak into the article.
+        e.preventDefault()
+        const text = e.clipboardData.getData('text/plain')
+        document.execCommand('insertText', false, text)
+      }}
+    />
+  )
+}
+
+function SectionHeading({
+  title,
+  canEdit,
+  editing,
+  onEdit,
+  onSave,
+  onCancel,
 }: {
   title: string
-  items: string[]
-  onChange: (i: number, v: string) => void
-  onAdd: () => void
-  onRemove: (i: number) => void
-  addLabel: string
-  rows: number
+  canEdit: boolean
+  editing: boolean
+  onEdit: () => void
+  onSave: () => void
+  onCancel: () => void
 }) {
   return (
-    <section className="rounded border border-neutral-200 p-5">
-      <h3 className="mb-3 text-[13px] font-extrabold uppercase tracking-wide text-foreground">
-        {title}
-      </h3>
-      <div className="space-y-3">
-        {items.map((item, i) => (
-          <div key={i} className="flex gap-2">
-            <textarea
-              className={inputClass}
-              rows={rows}
-              value={item}
-              onChange={(e) => onChange(i, e.target.value)}
-            />
-            <button
-              type="button"
-              onClick={() => onRemove(i)}
-              className="shrink-0 self-start rounded border border-neutral-300 px-2 py-2 text-[11px] font-bold text-neutral-400 hover:border-science-red hover:text-science-red"
-            >
-              ✕
-            </button>
-          </div>
-        ))}
-      </div>
-      <button
-        type="button"
-        onClick={onAdd}
-        className="mt-3 text-[12px] font-bold text-science-red hover:underline"
-      >
-        {addLabel}
-      </button>
-    </section>
+    <div className="flex items-center justify-between gap-3 border-t-2 border-foreground pt-3">
+      <h2 className="text-lg font-extrabold uppercase tracking-wide">{title}</h2>
+      {editing ? (
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={onSave}
+            className="rounded bg-science-red px-3 py-1 text-[12px] font-bold text-white transition-opacity hover:opacity-90"
+          >
+            저장
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded border border-neutral-300 px-3 py-1 text-[12px] font-bold text-neutral-600 transition-colors hover:border-neutral-500"
+          >
+            취소
+          </button>
+        </div>
+      ) : (
+        canEdit && (
+          <button
+            type="button"
+            onClick={onEdit}
+            className="inline-flex shrink-0 items-center gap-1 rounded border border-science-red/40 bg-science-red/5 px-2.5 py-1 text-[12px] font-bold text-science-red transition-colors hover:bg-science-red/10"
+          >
+            <Pencil className="size-[13px]" />
+            편집
+          </button>
+        )
+      )}
+    </div>
   )
 }

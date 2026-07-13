@@ -186,3 +186,22 @@
     @apply cursor-not-allowed;
   }
 }
+
+/* In-place editing: the article keeps its published look while each field
+   becomes directly typable. Fields are outlined only on hover/focus so the
+   page still reads as the article, not as a form. */
+@layer components {
+  .inline-edit {
+    @apply -mx-1.5 cursor-text rounded-sm px-1.5 outline-none ring-1 ring-neutral-200 transition-shadow;
+  }
+  .inline-edit:hover {
+    @apply ring-neutral-400;
+  }
+  .inline-edit:focus {
+    @apply ring-2 ring-science-red;
+  }
+  .inline-edit:empty::before {
+    content: attr(data-placeholder);
+    @apply text-neutral-400;
+  }
+}
