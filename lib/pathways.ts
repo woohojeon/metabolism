@@ -245,10 +245,6 @@ const pathwayVideos: Record<string, Video[]> = {
 const pathwayFigures: Record<string, string[]> = {
   'carbohydrate-metabolism/glycolysis': [
     '/images/glycolysis-3d.png',
-    '/images/KakaoTalk_20260709_143657059.jpg',
-    '/images/KakaoTalk_20260709_143657059_01.jpg',
-    '/images/KakaoTalk_20260709_143657059_02.jpg',
-    '/images/KakaoTalk_20260709_143657059_03.jpg',
   ],
   'carbohydrate-metabolism/electron-transfer-system-and-oxidative-phosphorylation': [
     '/images/cellular-respiration-3d.png',
