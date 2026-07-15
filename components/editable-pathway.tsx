@@ -260,6 +260,31 @@ export function EditablePathway({
             </section>
           )}
 
+          {data.figures && data.figures.length > 0 && (
+            <section className="mt-10">
+              <div className="border-t-2 border-foreground pt-3">
+                <h2 className="text-lg font-extrabold uppercase tracking-wide">Images</h2>
+              </div>
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {data.figures.map((src, i) => (
+                  <figure
+                    key={i}
+                    className="overflow-hidden rounded border border-neutral-200 bg-white"
+                  >
+                    <Image
+                      src={src}
+                      alt={`${data.name} figure ${i + 1}`}
+                      width={800}
+                      height={600}
+                      className="h-auto w-full"
+                      sizes="(min-width: 640px) 400px, 100vw"
+                    />
+                  </figure>
+                ))}
+              </div>
+            </section>
+          )}
+
           {hasVideos && (
             <section className="mt-10">
               <SectionHeading title="Videos" {...sectionProps('videos')} />

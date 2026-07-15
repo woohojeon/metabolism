@@ -21,6 +21,8 @@ export type Pathway = {
   slidesPptx?: string
   // Supplementary YouTube lectures, embedded at the foot of the article.
   videos?: Video[]
+  // Supplementary figure images (paths under /public), shown as a gallery.
+  figures?: string[]
   // Depth-3 sub-topics (mirrors the structure/ folder hierarchy).
   children: Pathway[]
 }
@@ -234,6 +236,16 @@ const pathwayVideos: Record<string, Video[]> = {
   ],
 }
 
+// Supplementary figure images, keyed by `${categorySlug}/${pathwaySlug}`.
+const pathwayFigures: Record<string, string[]> = {
+  'carbohydrate-metabolism/glycolysis': [
+    '/images/KakaoTalk_20260709_143657059.jpg',
+    '/images/KakaoTalk_20260709_143657059_01.jpg',
+    '/images/KakaoTalk_20260709_143657059_02.jpg',
+    '/images/KakaoTalk_20260709_143657059_03.jpg',
+  ],
+}
+
 // Merge PPT-derived Overview text + Key-step diagrams into the pathway tree.
 function injectContent(p: Pathway, categorySlug: string) {
   const key = `${categorySlug}/${p.slug}`
@@ -244,6 +256,7 @@ function injectContent(p: Pathway, categorySlug: string) {
   }
   if (pathwaySlides[key]) p.slidesPptx = pathwaySlides[key]
   if (pathwayVideos[key]) p.videos = pathwayVideos[key]
+  if (pathwayFigures[key]) p.figures = pathwayFigures[key]
   if (keyStepCanvases[key]) p.keyStepCanvas = keyStepCanvases[key]
   p.children.forEach((c) => injectContent(c, categorySlug))
 }
