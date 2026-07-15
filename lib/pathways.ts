@@ -76,6 +76,8 @@ export type Category = {
   image: string
   intro: string[]
   pathways: Pathway[]
+  // An optional illustrative figure shown in the category Overview.
+  figure?: string
 }
 
 function slugify(s: string) {
@@ -112,6 +114,7 @@ function cat(o: {
   tagline: string
   image: string
   items: Item[]
+  figure?: string
 }): Category {
   return {
     slug: o.slug,
@@ -120,6 +123,7 @@ function cat(o: {
     image: o.image,
     intro: [],
     pathways: o.items.map((it) => (Array.isArray(it) ? p(it[0], it[1]) : p(it))),
+    figure: o.figure,
   }
 }
 
@@ -145,6 +149,7 @@ export const categories: Category[] = [
     name: 'Carbohydrate Metabolism',
     tagline: 'Central energy currency of the cell',
     image: '/images/carbohydrate-metabolism.jpg',
+    figure: '/images/carbohydrate-metabolism-3d.png',
     items: [
       'Glycolysis',
       'Gluconeogenesis',
@@ -239,10 +244,17 @@ const pathwayVideos: Record<string, Video[]> = {
 // Supplementary figure images, keyed by `${categorySlug}/${pathwaySlug}`.
 const pathwayFigures: Record<string, string[]> = {
   'carbohydrate-metabolism/glycolysis': [
+    '/images/glycolysis-3d.png',
     '/images/KakaoTalk_20260709_143657059.jpg',
     '/images/KakaoTalk_20260709_143657059_01.jpg',
     '/images/KakaoTalk_20260709_143657059_02.jpg',
     '/images/KakaoTalk_20260709_143657059_03.jpg',
+  ],
+  'carbohydrate-metabolism/electron-transfer-system-and-oxidative-phosphorylation': [
+    '/images/cellular-respiration-3d.png',
+  ],
+  'digestion-absorption-transportation/transportation': [
+    '/images/glucose-transport-3d.png',
   ],
 }
 

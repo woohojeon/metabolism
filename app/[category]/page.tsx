@@ -87,6 +87,18 @@ export default async function CategoryPage({
                   </p>
                 ))}
               </div>
+              {category.figure && (
+                <figure className="mt-6 overflow-hidden rounded border border-neutral-200 bg-white">
+                  <Image
+                    src={category.figure}
+                    alt={`${category.name} illustration`}
+                    width={1000}
+                    height={750}
+                    className="h-auto w-full"
+                    sizes="(min-width: 1024px) 640px, 100vw"
+                  />
+                </figure>
+              )}
             </div>
             <aside className="lg:col-span-4">
               <div className="bg-panel p-5">
