@@ -2,10 +2,10 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { Bold, Pencil, Underline } from 'lucide-react'
+import { Bold, Pencil, Subscript, Superscript, Underline, Upload, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { CategoryLabel } from '@/components/article-bits'
-import { SlideDownload } from '@/components/slide-download'
+import { SlideViewer } from '@/components/slide-download'
 import { KeyStepCanvas, emptyCanvas, hasCanvas } from '@/components/key-step-canvas'
 import { sanitizeRich } from '@/lib/rich-text'
 import type { Category, Pathway, Video } from '@/lib/pathways'
@@ -14,7 +14,10 @@ import { useAuth } from '@/components/auth-provider'
 
 // Only the sections the article actually publishes are editable, and only one
 // at a time — editing happens in place, never in a separate form.
-type Section = 'overview' | 'keystep' | 'videos' | 'regulation'
+type Section = 'overview' | 'keystep' | 'videos' | 'figures'
+
+// Classification / formatting glyphs offered in the Overview editor toolbar.
+const SYMBOLS = ['•', '◦', '▪', '▸', '·']
 
 function clone<T>(v: T): T {
   return JSON.parse(JSON.stringify(v)) as T
@@ -38,6 +41,7 @@ export function EditablePathway({
   const [draft, setDraft] = useState<Pathway>(pathway)
   const [editing, setEditing] = useState<Section | null>(null)
   const [hasEdits, setHasEdits] = useState(false)
+  const [lightbox, setLightbox] = useState<string | null>(null)
   const { user } = useAuth()
 
   useEffect(() => {
@@ -99,20 +103,52 @@ export function EditablePathway({
   function removeVideo(i: number) {
     setDraft((d) => ({ ...d, videos: (d.videos ?? []).filter((_, j) => j !== i) }))
   }
+  function addFigure(src: string) {
+    const s = src.trim()
+    if (!s) return
+    setDraft((d) => ({ ...d, figures: [...(d.figures ?? []), s] }))
+  }
+  function removeFigure(i: number) {
+    setDraft((d) => ({ ...d, figures: (d.figures ?? []).filter((_, j) => j !== i) }))
+  }
 
+  // Persist the uploaded lecture-slide PDF straight away — it lives outside the
+  // one-section-at-a-time edit flow, so it saves on its own like the map edits.
+  function setSlidesPdf(dataUrl: string) {
+    const updated = { ...data, slidesPdf: dataUrl }
+    try {
+      savePathwayEdit(category.slug, pathway.slug, updated)
+      setHasEdits(true)
+    } catch {
+      // A large PDF can overflow localStorage; keep it for this session only.
+      window.alert('슬라이드가 커서 저장은 못 했지만 이번 세션에서는 볼 수 있습니다.')
+    }
+    setData(updated)
+  }
+
+  // Remove the lecture slides. Empty strings (not undefined) so the cleared
+  // value survives JSON and overrides the injected default on reload.
+  function deleteSlides() {
+    if (!window.confirm('강의 슬라이드를 삭제할까요?')) return
+    const updated = { ...data, slidesPdf: '', slidesPptx: '' }
+    savePathwayEdit(category.slug, pathway.slug, updated)
+    setData(updated)
+    setHasEdits(true)
+  }
 
   const overview = shown('overview')
   const keystep = shown('keystep')
   const videos = shown('videos')
-  const regulation = shown('regulation')
+  const figures = shown('figures')
 
-  // A section offers editing only when the article already publishes it. There
-  // is nothing to edit on a field the page does not show.
-  const hasOverview = data.overview.length > 0
+  // A published section always shows. A logged-in user additionally sees the
+  // editable sections even when empty, so content can be *added*, not only
+  // changed. (Key Step keeps its own diagram/editor flow.)
+  const hasOverview = data.overview.length > 0 || Boolean(user)
   const hasKeyStep =
     Boolean(data.keyStepSvg) || data.steps.length > 0 || hasCanvas(data.keyStepCanvas)
-  const hasVideos = Boolean(data.videos?.length) || editing === 'videos'
-  const hasRegulation = data.regulation.length > 0
+  const hasVideos = Boolean(data.videos?.length) || Boolean(user)
+  const hasFigures = Boolean(data.figures?.length) || Boolean(user)
 
   const sectionProps = (section: Section) => ({
     canEdit: Boolean(user) && editing === null,
@@ -260,28 +296,39 @@ export function EditablePathway({
             </section>
           )}
 
-          {data.figures && data.figures.length > 0 && (
+          {hasFigures && (
             <section className="mt-10">
-              <div className="border-t-2 border-foreground pt-3">
-                <h2 className="text-lg font-extrabold uppercase tracking-wide">Images</h2>
-              </div>
+              <SectionHeading title="Figures" {...sectionProps('figures')} />
               <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {data.figures.map((src, i) => (
+                {(figures.figures ?? []).map((src, i) => (
                   <figure
                     key={i}
-                    className="overflow-hidden rounded border border-neutral-200 bg-white"
+                    className="group relative overflow-hidden rounded border border-neutral-200 bg-white"
                   >
-                    <Image
+                    {/* Plain <img>: figures can be remote or data: URLs from an
+                        upload, which next/image can't optimize. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
                       src={src}
                       alt={`${data.name} figure ${i + 1}`}
-                      width={800}
-                      height={600}
-                      className="h-auto w-full"
-                      sizes="(min-width: 640px) 400px, 100vw"
+                      className="h-auto w-full cursor-zoom-in"
+                      onClick={() => setLightbox(src)}
                     />
+                    {editing === 'figures' && (
+                      <button
+                        type="button"
+                        onClick={() => removeFigure(i)}
+                        aria-label="이미지 삭제"
+                        className="absolute right-2 top-2 inline-flex items-center gap-1 rounded bg-white/90 px-2 py-1 text-[11px] font-bold text-neutral-600 shadow-sm transition-colors hover:text-science-red"
+                      >
+                        <X className="size-[13px]" />
+                        삭제
+                      </button>
+                    )}
                   </figure>
                 ))}
               </div>
+              {editing === 'figures' && <FigureAdder onAdd={addFigure} />}
             </section>
           )}
 
@@ -360,48 +407,20 @@ export function EditablePathway({
               )}
             </section>
           )}
-
-          {hasRegulation && (
-            <section className="mt-10">
-              <SectionHeading title="Regulation" {...sectionProps('regulation')} />
-              {editing === 'regulation' ? (
-                <InlineText
-                  editing
-                  value={regulation.regulation.join('\n')}
-                  onChange={(v) =>
-                    setField(
-                      'regulation',
-                      v
-                        .split('\n')
-                        .map((line) => line.trim())
-                        .filter(Boolean),
-                    )
-                  }
-                  placeholder="조절 항목"
-                  className="mt-4 whitespace-pre-wrap text-[15px] leading-relaxed text-neutral-700"
-                />
-              ) : (
-                <ul className="mt-4 space-y-3">
-                  {regulation.regulation.map((r, i) => (
-                    <li key={i} className="flex gap-3 text-[15px] leading-snug text-neutral-700">
-                      <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-science-red" />
-                      {r}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {editing === 'regulation' && (
-                <p className="mt-2 text-[11px] text-neutral-500">한 줄이 하나의 항목이 됩니다.</p>
-              )}
-            </section>
-          )}
         </article>
 
         {/* Sidebar */}
         <aside className="lg:col-span-4">
           <div className="sticky top-20 space-y-6">
-            {data.slidesPptx && (
-              <SlideDownload href={data.slidesPptx} filename={`${data.slug}.pptx`} />
+            {(data.slidesPptx || data.slidesPdf || user) && (
+              <SlideViewer
+                pptx={data.slidesPptx}
+                pdf={data.slidesPdf}
+                filename={`${data.slug}.pptx`}
+                canEdit={Boolean(user)}
+                onUploadPdf={setSlidesPdf}
+                onDelete={deleteSlides}
+              />
             )}
             <div className="relative aspect-[4/3] w-full overflow-hidden bg-neutral-100">
               <Image
@@ -477,7 +496,92 @@ export function EditablePathway({
           </div>
         </aside>
       </div>
+
+      {lightbox && <Lightbox src={lightbox} onClose={() => setLightbox(null)} />}
     </>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Full-screen image zoom, closed by the backdrop, the button, or Escape.
+function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = ''
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [onClose])
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="닫기"
+        className="absolute right-4 top-4 inline-flex items-center gap-1 rounded bg-white/90 px-3 py-1.5 text-[12px] font-bold text-foreground transition-colors hover:bg-white"
+      >
+        <X className="size-[15px]" />
+        닫기 (Esc)
+      </button>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt="확대 이미지"
+        className="max-h-full max-w-full object-contain"
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Add a figure to the gallery by uploading an image file (kept as a data: URL
+// so it survives with the rest of the pathway edit).
+function FigureAdder({ onAdd }: { onAdd: (src: string) => void }) {
+  const [busy, setBusy] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (e.target) e.target.value = ''
+    if (!file) return
+    setBusy(true)
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader()
+        r.onload = () => resolve(r.result as string)
+        r.onerror = () => reject(r.error)
+        r.readAsDataURL(file)
+      })
+      onAdd(dataUrl)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="mt-4">
+      <input ref={fileRef} type="file" accept="image/*" onChange={onPick} className="hidden" />
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        disabled={busy}
+        className="inline-flex items-center gap-1 rounded border border-science-red/40 bg-science-red/5 px-3 py-1.5 text-[12px] font-bold text-science-red transition-colors hover:bg-science-red/10 disabled:opacity-50"
+      >
+        <Upload className="size-[13px]" />
+        {busy ? '올리는 중…' : '이미지 파일 업로드'}
+      </button>
+    </div>
   )
 }
 
@@ -514,10 +618,13 @@ function RichBody({
 
   return (
     <div className="mt-4">
-      <div className="mb-2 flex items-center gap-1">
+      <div className="mb-2 flex flex-wrap items-center gap-1">
         {[
           { cmd: 'bold', label: <Bold className="size-[13px]" />, title: '굵게' },
           { cmd: 'underline', label: <Underline className="size-[13px]" />, title: '밑줄' },
+          // Superscript / subscript for ions and formulae (H⁺, CO₂).
+          { cmd: 'superscript', label: <Superscript className="size-[13px]" />, title: '위 첨자' },
+          { cmd: 'subscript', label: <Subscript className="size-[13px]" />, title: '아래 첨자' },
         ].map((b) => (
           <button
             key={b.cmd}
@@ -530,6 +637,20 @@ function RichBody({
             className="flex size-7 items-center justify-center rounded border border-neutral-300 bg-white text-neutral-600 transition-colors hover:border-science-red hover:text-science-red"
           >
             {b.label}
+          </button>
+        ))}
+        <span className="mx-1 h-5 w-px bg-neutral-200" />
+        {/* Classification / formatting glyphs, inserted at the caret. */}
+        {SYMBOLS.map((sym) => (
+          <button
+            key={sym}
+            type="button"
+            title={`${sym} 삽입`}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => document.execCommand('insertText', false, sym)}
+            className="flex size-7 items-center justify-center rounded border border-neutral-300 bg-white text-[13px] text-neutral-600 transition-colors hover:border-science-red hover:text-science-red"
+          >
+            {sym}
           </button>
         ))}
       </div>

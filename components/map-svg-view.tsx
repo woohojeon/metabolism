@@ -7,12 +7,15 @@ import { useEffect, useMemo, useState } from 'react'
 // 실제 렌더러 출력이라 화살표/글씨가 PowerPoint 와 동일.
 
 type Cat = 'overview' | 'carbohydrate' | 'lipid' | 'protein' | 'nucleic'
+// Category accent colours sampled from each section's cover photo:
+// carbohydrate = golden bread/amber, lipid = teal oil bubbles,
+// protein = red cured meat, nucleic acid = deep blue DNA helix.
 const CAT: Record<Cat, { label: string; color: string }> = {
   overview: { label: 'Overview', color: '#111111' },
-  carbohydrate: { label: 'Carbohydrate', color: '#2563eb' },
-  lipid: { label: 'Lipid', color: '#ea580c' },
-  protein: { label: 'Protein', color: '#16a34a' },
-  nucleic: { label: 'Nucleic acid', color: '#9333ea' },
+  carbohydrate: { label: 'Carbohydrate', color: '#B5793A' },
+  lipid: { label: 'Lipid', color: '#1F9E93' },
+  protein: { label: 'Protein', color: '#C0433C' },
+  nucleic: { label: 'Nucleic acid', color: '#34618E' },
 }
 
 // 이 deck 의 슬라이드 순서(고정). id1 = 슬라이드1(전체 지도).

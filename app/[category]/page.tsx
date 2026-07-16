@@ -71,24 +71,12 @@ export default async function CategoryPage({
             <span className="text-foreground">{category.name}</span>
           </nav>
 
-          {/* Intro */}
+          {/* Intro figure + pathway index (the labelled "Overview" write-up
+              was removed — it carried no content). */}
           <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-12">
-            <div className="lg:col-span-8">
-              <div className="border-t-2 border-foreground pt-3">
-                <h2 className="text-lg font-extrabold uppercase tracking-wide">Overview</h2>
-              </div>
-              <div className="mt-4 space-y-4">
-                {category.intro.map((para, i) => (
-                  <p
-                    key={i}
-                    className="text-[16px] leading-relaxed text-neutral-700 first:text-[18px] first:leading-relaxed first:text-foreground"
-                  >
-                    {para}
-                  </p>
-                ))}
-              </div>
-              {category.figure && (
-                <figure className="mt-6 overflow-hidden rounded border border-neutral-200 bg-white">
+            {category.figure && (
+              <div className="lg:col-span-8">
+                <figure className="overflow-hidden rounded border border-neutral-200 bg-white">
                   <Image
                     src={category.figure}
                     alt={`${category.name} illustration`}
@@ -98,8 +86,8 @@ export default async function CategoryPage({
                     sizes="(min-width: 1024px) 640px, 100vw"
                   />
                 </figure>
-              )}
-            </div>
+              </div>
+            )}
             <aside className="lg:col-span-4">
               <div className="bg-panel p-5">
                 <h3 className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">
