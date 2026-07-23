@@ -68,7 +68,7 @@ export function CategoryFigures({
         {figures.map((src, i) => (
           <figure
             key={i}
-            className="group relative overflow-hidden rounded border border-neutral-200 bg-white"
+            className="group relative flex items-center justify-center overflow-hidden rounded border border-neutral-200 bg-white"
           >
             {/* Plain <img>: figures can be data: URLs from an upload, which
                 next/image can't optimize. */}
