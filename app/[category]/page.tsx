@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { SiteHeader } from '@/components/site-header'
 import { SiteFooter } from '@/components/site-footer'
+import { CategoryFigures } from '@/components/category-figures'
 import { categories, getCategory } from '@/lib/pathways'
 
 export function generateStaticParams() {
@@ -166,6 +167,13 @@ export default async function CategoryPage({
               ))}
             </ul>
           </section>
+
+          {/* Supplementary figure gallery (from Figures_upload.pptx). */}
+          <CategoryFigures
+            categorySlug={category.slug}
+            categoryName={category.name}
+            published={category.figures ?? []}
+          />
         </div>
       </main>
       <SiteFooter />

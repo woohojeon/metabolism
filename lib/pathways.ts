@@ -81,6 +81,9 @@ export type Category = {
   pathways: Pathway[]
   // An optional illustrative figure shown in the category Overview.
   figure?: string
+  // Supplementary figure images (paths under /public), shown as a gallery on
+  // the category page.
+  figures?: string[]
 }
 
 function slugify(s: string) {
@@ -152,7 +155,6 @@ export const categories: Category[] = [
     name: 'Carbohydrate Metabolism',
     tagline: 'Central energy currency of the cell',
     image: '/images/carbohydrate-metabolism.jpg',
-    figure: '/images/carbohydrate-metabolism-3d.png',
     items: [
       'Glycolysis',
       'Gluconeogenesis',
@@ -250,17 +252,28 @@ const pathwayVideos: Record<string, Video[]> = {
 }
 
 // Supplementary figure images, keyed by `${categorySlug}/${pathwaySlug}`.
-const pathwayFigures: Record<string, string[]> = {
-  'carbohydrate-metabolism/glycolysis': [
-    '/images/glycolysis-3d.png',
-  ],
-  'carbohydrate-metabolism/electron-transfer-system-and-oxidative-phosphorylation': [
-    '/images/cellular-respiration-3d.png',
-  ],
-  'digestion-absorption-transportation/transportation': [
-    '/images/glucose-transport-3d.png',
-  ],
+const pathwayFigures: Record<string, string[]> = {}
+
+// Supplementary figure galleries per category, extracted in slide order from
+// 'Figures_upload.pptx' into /public/figures/<category-slug>/NN.png.
+const categoryFigureCounts: Record<string, number> = {
+  metabolism: 1,
+  'digestion-absorption-transportation': 2,
+  'carbohydrate-metabolism': 18,
+  'lipid-metabolism': 8,
+  'protein-metabolism': 5,
+  'comparative-vet-biochem': 3,
+  'hormonal-regulation-and-metabolism': 4,
 }
+const categoryFigures: Record<string, string[]> = Object.fromEntries(
+  Object.entries(categoryFigureCounts).map(([slug, count]) => [
+    slug,
+    Array.from(
+      { length: count },
+      (_, i) => `/figures/${slug}/${String(i + 1).padStart(2, '0')}.png`,
+    ),
+  ]),
+)
 
 // Merge PPT-derived Overview text + Key-step diagrams into the pathway tree.
 function injectContent(p: Pathway, categorySlug: string) {
@@ -278,6 +291,7 @@ function injectContent(p: Pathway, categorySlug: string) {
   p.children.forEach((c) => injectContent(c, categorySlug))
 }
 for (const c of categories) {
+  if (categoryFigures[c.slug]) c.figures = categoryFigures[c.slug]
   c.pathways.forEach((p) => injectContent(p, c.slug))
 }
 
