@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Menu, X, Search, BookOpen, User, LogOut } from 'lucide-react'
+import { Menu, X, Search, User, LogOut } from 'lucide-react'
 import { Wordmark } from './wordmark'
 import { categories } from '@/lib/pathways'
 import { useAuth } from './auth-provider'
@@ -70,21 +70,13 @@ export function SiteHeader() {
           >
             <Search className="size-[18px]" />
           </button>
-          <Link
-            href="/instructor"
-            aria-label="Instructor"
-            className="hidden size-9 items-center justify-center rounded-full text-white/90 transition-colors hover:bg-white/10 hover:text-white sm:flex"
-          >
-            <BookOpen className="size-[18px]" />
-          </Link>
-
           {user ? (
             <button
               type="button"
               onClick={logout}
               className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white/90 transition-colors hover:bg-white/10 hover:text-white"
             >
-              <span className="hidden sm:inline">{user}</span>
+              <span className="hidden sm:inline">Logout</span>
               <LogOut className="size-[16px]" />
             </button>
           ) : (
