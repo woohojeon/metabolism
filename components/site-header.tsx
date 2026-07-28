@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Menu, X, Search, User, LogOut } from 'lucide-react'
+import { Menu, X, Search, User, LogOut, Users } from 'lucide-react'
 import { Wordmark } from './wordmark'
 import { categories } from '@/lib/pathways'
 import { useAuth } from './auth-provider'
@@ -13,7 +13,7 @@ export function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [loginOpen, setLoginOpen] = useState(false)
-  const { user, logout } = useAuth()
+  const { user, isAdmin, logout } = useAuth()
 
   return (
     <header className="sticky top-0 z-50 bg-ink text-white">
@@ -70,6 +70,16 @@ export function SiteHeader() {
           >
             <Search className="size-[18px]" />
           </button>
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className="hidden items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white/90 transition-colors hover:bg-white/10 hover:text-white sm:flex"
+            >
+              <Users className="size-[16px]" />
+              Accounts
+            </Link>
+          )}
+
           {user ? (
             <button
               type="button"
@@ -199,6 +209,15 @@ export function SiteHeader() {
             >
               The Metabolic Map
             </Link>
+            {isAdmin && (
+              <Link
+                href="/admin"
+                onClick={() => setMenuOpen(false)}
+                className="block py-1.5 text-[14px] font-extrabold uppercase tracking-wide text-science-red transition-colors hover:text-foreground"
+              >
+                Student Accounts
+              </Link>
+            )}
           </div>
         </nav>
       </aside>

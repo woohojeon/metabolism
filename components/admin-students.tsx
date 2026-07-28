@@ -1,0 +1,573 @@
+'use client'
+
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
+import {
+  Check,
+  Copy,
+  Eye,
+  EyeOff,
+  Lock,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  X,
+} from 'lucide-react'
+import { useAuth } from './auth-provider'
+import { CategoryLabel } from './article-bits'
+import { LoginDialog } from './login-dialog'
+import {
+  ADMIN_USERNAME,
+  createStudent,
+  deleteStudent,
+  listStudents,
+  updateStudent,
+  usingSupabase,
+  type Student,
+} from '@/lib/students'
+
+const FIELD =
+  'h-9 w-full rounded-md border border-neutral-300 bg-background px-2.5 text-[14px] outline-none transition-colors focus:border-foreground disabled:bg-panel disabled:text-neutral-400'
+
+const LABEL = 'text-[11px] font-bold uppercase tracking-wider text-neutral-500'
+
+type Draft = { name: string; username: string; password: string }
+
+const EMPTY: Draft = { name: '', username: '', password: '' }
+
+export function AdminStudents() {
+  const { user, isAdmin, ready, logout } = useAuth()
+
+  const [rows, setRows] = useState<Student[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [query, setQuery] = useState('')
+  const [reveal, setReveal] = useState(false)
+  const [loginOpen, setLoginOpen] = useState(false)
+
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [draft, setDraft] = useState<Draft>(EMPTY)
+  const [adding, setAdding] = useState(false)
+  const [newDraft, setNewDraft] = useState<Draft>(EMPTY)
+  const [confirmId, setConfirmId] = useState<string | null>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  // `silent` re-reads the roster after an edit without flashing the skeleton
+  // rows, so saving a single field does not blank the whole table.
+  const refresh = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
+    setError('')
+    try {
+      setRows(await listStudents())
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '명단을 불러오지 못했습니다.')
+    } finally {
+      if (!silent) setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (ready && isAdmin) void refresh()
+    else if (ready) setLoading(false)
+  }, [ready, isAdmin, refresh])
+
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return rows
+    return rows.filter(
+      (r) =>
+        r.name.toLowerCase().includes(q) || r.username.toLowerCase().includes(q),
+    )
+  }, [rows, query])
+
+  const studentCount = rows.filter((r) => r.username !== ADMIN_USERNAME).length
+
+  async function run(action: () => Promise<void>) {
+    setBusy(true)
+    setError('')
+    try {
+      await action()
+      await refresh(true)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '요청이 실패했습니다.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const startEdit = (row: Student) => {
+    setEditingId(row.id)
+    setDraft({ name: row.name, username: row.username, password: row.password })
+    setConfirmId(null)
+    setError('')
+  }
+
+  const saveEdit = (row: Student) =>
+    run(async () => {
+      await updateStudent(row.id, draft)
+      setEditingId(null)
+    })
+
+  const addRow = () =>
+    run(async () => {
+      await createStudent(newDraft)
+      setNewDraft(EMPTY)
+      setAdding(false)
+    })
+
+  const copy = async (row: Student) => {
+    try {
+      await navigator.clipboard.writeText(
+        `아이디: ${row.username}  비밀번호: ${row.password}`,
+      )
+      setCopiedId(row.id)
+      setTimeout(() => setCopiedId(null), 1500)
+    } catch {
+      setError('클립보드에 복사할 수 없습니다.')
+    }
+  }
+
+  // ------------------------------------------------------------------- gating
+
+  if (!ready) {
+    return <div className="h-64" />
+  }
+
+  if (!isAdmin) {
+    return (
+      <>
+        <div className="mx-auto max-w-[520px] py-16 text-center">
+          <span className="inline-flex size-14 items-center justify-center rounded-full bg-panel">
+            <Lock className="size-6 text-science-red" />
+          </span>
+          <h1 className="mt-5 text-3xl font-extrabold leading-tight">
+            Administrator only
+          </h1>
+          <p className="mt-3 text-[15px] leading-relaxed text-neutral-600">
+            이 페이지는 관리자 계정
+            <code className="mx-1 rounded bg-panel px-1.5 py-0.5 font-mono text-[13px] text-foreground">
+              {ADMIN_USERNAME}
+            </code>
+            으로 로그인해야 열 수 있습니다.
+            {user && (
+              <>
+                {' '}
+                현재
+                <code className="mx-1 rounded bg-panel px-1.5 py-0.5 font-mono text-[13px] text-foreground">
+                  {user}
+                </code>
+                (으)로 로그인되어 있습니다.
+              </>
+            )}
+          </p>
+          <div className="mt-7 flex items-center justify-center gap-3">
+            {user ? (
+              <button
+                type="button"
+                onClick={logout}
+                className="h-11 rounded-full bg-science-red px-6 text-[12px] font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90"
+              >
+                Switch account
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setLoginOpen(true)}
+                className="h-11 rounded-full bg-science-red px-6 text-[12px] font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90"
+              >
+                Sign in
+              </button>
+            )}
+            <Link
+              href="/"
+              className="h-11 rounded-full border border-neutral-300 px-6 text-[12px] font-bold uppercase leading-[2.75rem] tracking-wider text-neutral-600 transition-colors hover:border-foreground hover:text-foreground"
+            >
+              Back home
+            </Link>
+          </div>
+        </div>
+        <LoginDialog open={loginOpen} onClose={() => setLoginOpen(false)} />
+      </>
+    )
+  }
+
+  // --------------------------------------------------------------------- page
+
+  return (
+    <>
+      {/* Masthead */}
+      <header className="border-b border-neutral-200 pb-7">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <CategoryLabel>Administration</CategoryLabel>
+            <h1 className="mt-1 text-4xl font-extrabold leading-tight sm:text-5xl">
+              Student Accounts
+            </h1>
+            <p className="mt-2 max-w-[52ch] text-[15px] leading-relaxed text-neutral-600">
+              수업 자료에 접근할 수 있는 계정 목록입니다. 이름과 아이디, 비밀번호를
+              지정해 학생에게 전달하세요.
+            </p>
+          </div>
+          {!usingSupabase && (
+            <span className="rounded-full border border-neutral-300 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+              Local demo · 이 브라우저에만 저장
+            </span>
+          )}
+        </div>
+
+        {/* Counts */}
+        <dl className="mt-7 grid grid-cols-2 gap-px overflow-hidden bg-neutral-200 sm:grid-cols-3">
+          {[
+            { label: 'Total accounts', value: rows.length, mono: false },
+            { label: 'Students', value: studentCount, mono: false },
+            { label: 'Administrator', value: ADMIN_USERNAME, mono: true },
+          ].map((s) => (
+            <div key={s.label} className="bg-panel px-5 py-4">
+              <dt className={LABEL}>{s.label}</dt>
+              <dd
+                className={`mt-1 text-2xl font-extrabold text-foreground ${s.mono ? 'font-mono text-xl' : ''}`}
+              >
+                {s.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </header>
+
+      {/* Toolbar */}
+      <div className="mt-8 flex flex-wrap items-center gap-3">
+        <div className="relative min-w-[200px] flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="이름 또는 아이디 검색"
+            aria-label="Search accounts"
+            className="h-11 w-full rounded-full border border-neutral-300 pl-10 pr-4 text-[15px] outline-none transition-colors focus:border-foreground"
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setReveal((v) => !v)}
+          aria-pressed={reveal}
+          className="flex h-11 items-center gap-2 rounded-full border border-neutral-300 px-4 text-[11px] font-bold uppercase tracking-wider text-neutral-600 transition-colors hover:border-foreground hover:text-foreground"
+        >
+          {reveal ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+          {reveal ? 'Hide passwords' : 'Show passwords'}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setAdding(true)
+            setEditingId(null)
+            setNewDraft(EMPTY)
+          }}
+          className="flex h-11 items-center gap-2 rounded-full bg-science-red px-5 text-[11px] font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90"
+        >
+          <Plus className="size-4" />
+          Add account
+        </button>
+      </div>
+
+      {error && (
+        <div className="mt-5 border-l-4 border-science-red bg-panel px-4 py-3">
+          <p className="text-[14px] font-medium text-foreground">{error}</p>
+          {error.includes('관리자 권한') && (
+            <button
+              type="button"
+              onClick={logout}
+              className="mt-1 text-[11px] font-bold uppercase tracking-wider text-science-red hover:text-foreground"
+            >
+              다시 로그인 →
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Roster */}
+      <div className="mt-6 overflow-x-auto">
+        <table className="w-full min-w-[720px] border-collapse text-left">
+          <thead>
+            <tr className="border-b-2 border-foreground">
+              <th className={`w-10 pb-2 pr-3 ${LABEL}`}>#</th>
+              <th className={`pb-2 pr-3 ${LABEL}`}>Name</th>
+              <th className={`pb-2 pr-3 ${LABEL}`}>Username</th>
+              <th className={`pb-2 pr-3 ${LABEL}`}>Password</th>
+              <th className={`w-[172px] pb-2 text-right ${LABEL}`}>Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {/* New account */}
+            {adding && (
+              <tr className="border-b border-neutral-200 bg-panel/60">
+                <td className="py-3 pr-3 text-[13px] font-bold text-science-red">
+                  New
+                </td>
+                <td className="py-3 pr-3">
+                  <input
+                    autoFocus
+                    value={newDraft.name}
+                    onChange={(e) =>
+                      setNewDraft({ ...newDraft, name: e.target.value })
+                    }
+                    placeholder="이름"
+                    className={FIELD}
+                  />
+                </td>
+                <td className="py-3 pr-3">
+                  <input
+                    value={newDraft.username}
+                    onChange={(e) =>
+                      setNewDraft({ ...newDraft, username: e.target.value })
+                    }
+                    placeholder="아이디"
+                    className={`${FIELD} font-mono`}
+                  />
+                </td>
+                <td className="py-3 pr-3">
+                  <input
+                    value={newDraft.password}
+                    onChange={(e) =>
+                      setNewDraft({ ...newDraft, password: e.target.value })
+                    }
+                    placeholder="비밀번호"
+                    className={`${FIELD} font-mono`}
+                  />
+                </td>
+                <td className="py-3">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <RowButton onClick={addRow} disabled={busy} tone="primary">
+                      <Check className="size-4" />
+                      Save
+                    </RowButton>
+                    <RowButton
+                      onClick={() => {
+                        setAdding(false)
+                        setNewDraft(EMPTY)
+                      }}
+                      disabled={busy}
+                    >
+                      <X className="size-4" />
+                    </RowButton>
+                  </div>
+                </td>
+              </tr>
+            )}
+
+            {loading &&
+              Array.from({ length: 4 }).map((_, i) => (
+                <tr key={i} className="border-b border-neutral-200">
+                  <td colSpan={5} className="py-4">
+                    <div className="h-4 w-full animate-pulse rounded bg-panel" />
+                  </td>
+                </tr>
+              ))}
+
+            {!loading &&
+              shown.map((row, i) => {
+                const isTheAdmin = row.username === ADMIN_USERNAME
+                const editing = editingId === row.id
+
+                return (
+                  <tr
+                    key={row.id}
+                    className="border-b border-neutral-200 align-middle transition-colors hover:bg-panel/50"
+                  >
+                    <td className="py-3 pr-3 text-[13px] font-semibold text-neutral-400">
+                      {i + 1}
+                    </td>
+
+                    <td className="py-3 pr-3">
+                      {editing ? (
+                        <input
+                          autoFocus
+                          value={draft.name}
+                          onChange={(e) =>
+                            setDraft({ ...draft, name: e.target.value })
+                          }
+                          className={FIELD}
+                        />
+                      ) : (
+                        <span className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
+                          {row.name}
+                          {isTheAdmin && (
+                            <span className="rounded-full bg-science-red px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
+                              Admin
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="py-3 pr-3">
+                      {editing ? (
+                        <input
+                          value={draft.username}
+                          disabled={isTheAdmin}
+                          title={
+                            isTheAdmin
+                              ? '관리자 아이디는 변경할 수 없습니다.'
+                              : undefined
+                          }
+                          onChange={(e) =>
+                            setDraft({ ...draft, username: e.target.value })
+                          }
+                          className={`${FIELD} font-mono`}
+                        />
+                      ) : (
+                        <span className="font-mono text-[14px] text-neutral-700">
+                          {row.username}
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="py-3 pr-3">
+                      {editing ? (
+                        <input
+                          value={draft.password}
+                          onChange={(e) =>
+                            setDraft({ ...draft, password: e.target.value })
+                          }
+                          className={`${FIELD} font-mono`}
+                        />
+                      ) : (
+                        <span className="font-mono text-[14px] text-neutral-700">
+                          {reveal ? row.password : '••••••••'}
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="py-3">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {editing ? (
+                          <>
+                            <RowButton
+                              onClick={() => saveEdit(row)}
+                              disabled={busy}
+                              tone="primary"
+                            >
+                              <Check className="size-4" />
+                              Save
+                            </RowButton>
+                            <RowButton
+                              onClick={() => setEditingId(null)}
+                              disabled={busy}
+                            >
+                              <X className="size-4" />
+                            </RowButton>
+                          </>
+                        ) : confirmId === row.id ? (
+                          <>
+                            <RowButton
+                              onClick={() =>
+                                run(async () => {
+                                  await deleteStudent(row.id)
+                                  setConfirmId(null)
+                                })
+                              }
+                              disabled={busy}
+                              tone="danger"
+                            >
+                              삭제 확인
+                            </RowButton>
+                            <RowButton onClick={() => setConfirmId(null)}>
+                              <X className="size-4" />
+                            </RowButton>
+                          </>
+                        ) : (
+                          <>
+                            <RowButton
+                              onClick={() => copy(row)}
+                              title="아이디와 비밀번호 복사"
+                            >
+                              {copiedId === row.id ? (
+                                <Check className="size-4 text-science-red" />
+                              ) : (
+                                <Copy className="size-4" />
+                              )}
+                            </RowButton>
+                            <RowButton onClick={() => startEdit(row)}>
+                              <Pencil className="size-4" />
+                              Edit
+                            </RowButton>
+                            {!isTheAdmin && (
+                              <RowButton
+                                onClick={() => setConfirmId(row.id)}
+                                title="계정 삭제"
+                              >
+                                <Trash2 className="size-4" />
+                              </RowButton>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+
+            {!loading && shown.length === 0 && (
+              <tr>
+                <td colSpan={5} className="py-14 text-center">
+                  <p className="text-[15px] font-semibold text-foreground">
+                    {rows.length === 0
+                      ? '등록된 계정이 없습니다.'
+                      : '검색 결과가 없습니다.'}
+                  </p>
+                  <p className="mt-1 text-[14px] text-neutral-500">
+                    {rows.length === 0
+                      ? '오른쪽 위 Add account 로 첫 계정을 만드세요.'
+                      : '다른 이름이나 아이디로 검색해 보세요.'}
+                  </p>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="mt-6 text-[13px] leading-relaxed text-neutral-500">
+        비밀번호는 관리자가 학생에게 전달할 수 있도록 그대로 저장됩니다. 이
+        표는 관리자 계정으로만 열람할 수 있으며, 학생 계정으로는 다른 사람의
+        비밀번호를 볼 수 없습니다.
+      </p>
+    </>
+  )
+}
+
+function RowButton({
+  children,
+  onClick,
+  disabled,
+  title,
+  tone = 'default',
+}: {
+  children: React.ReactNode
+  onClick?: () => void
+  disabled?: boolean
+  title?: string
+  tone?: 'default' | 'primary' | 'danger'
+}) {
+  const tones = {
+    default:
+      'border-neutral-300 text-neutral-600 hover:border-foreground hover:text-foreground',
+    primary: 'border-foreground bg-foreground text-background hover:opacity-90',
+    danger: 'border-science-red bg-science-red text-white hover:opacity-90',
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className={`flex h-8 items-center gap-1.5 rounded-full border px-3 text-[11px] font-bold uppercase tracking-wider transition-colors disabled:opacity-50 ${tones[tone]}`}
+    >
+      {children}
+    </button>
+  )
+}
