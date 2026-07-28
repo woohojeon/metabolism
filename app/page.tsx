@@ -40,14 +40,17 @@ function HeroMap() {
               <span className="text-white/40">|</span>
               <MetaDate className="text-white/70">Metabolism Overview</MetaDate>
             </div>
-            <h1 className="mt-2 max-w-3xl text-balance text-2xl font-extrabold leading-tight text-white sm:text-4xl">
+            {/* One line at every width: the type scales with the viewport
+                instead of wrapping, so the fixed font sizes and max-width that
+                forced a second line are gone. */}
+            <h1 className="mt-2 whitespace-nowrap text-[clamp(0.75rem,3.1vw,2.5rem)] font-extrabold leading-tight text-white">
               대사 지도: 세포는 물질과 에너지를 어떻게 바꾸는가
             </h1>
             <p className="mt-3 max-w-2xl text-[13px] leading-snug text-white/85 sm:text-[15px]">
               몸속에서 일어나는 모든 반응은 서로 맞물려 하나의 거대한 네트워크를
-              이룹니다. 이 강의는 탄수화물, 지질, 단백질, 핵산 — 네 갈래의 분자를
-              따라 그 네트워크를 훑으며, 이들을 만들고 저장하고 분해하는 대사
-              경로를 다룹니다.
+              이룹니다. 탄수화물, 지질, 단백질, 핵산 네 갈래의 분자를 따라 그
+              네트워크를 훑으며, 이들을 만들고 저장하고 분해하는 대사 경로를
+              다룹니다.
             </p>
           </div>
         </div>
