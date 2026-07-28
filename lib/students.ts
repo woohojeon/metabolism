@@ -25,7 +25,10 @@ export const usingSupabase = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL)
 
 // ---------------------------------------------------------------- local demo
 
-const LOCAL_KEY = 'vbiochem-students'
+// Versioned: the seed below is only written when the key is missing, so a
+// browser that stored an earlier roster would otherwise keep serving it no
+// matter how SEED changes. Bump the suffix whenever SEED does.
+const LOCAL_KEY = 'vbiochem-students:v2'
 
 // The administrator plus one example student, so the page has something to
 // show before any account has been created.
