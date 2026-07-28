@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
+  // No `output: 'export'` — the .pptx → PDF conversion needs a server route to
+  // hold the CloudConvert API key (see app/api/convert-slides/route.ts).
   typescript: {
     ignoreBuildErrors: true,
   },

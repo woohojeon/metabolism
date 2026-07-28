@@ -112,15 +112,18 @@ export function EditablePathway({
     setDraft((d) => ({ ...d, figures: (d.figures ?? []).filter((_, j) => j !== i) }))
   }
 
-  // Persist the uploaded lecture-slide PDF straight away — it lives outside the
+  // Persist an uploaded lecture-slide file straight away — it lives outside the
   // one-section-at-a-time edit flow, so it saves on its own like the map edits.
-  function setSlidesPdf(dataUrl: string) {
-    const updated = { ...data, slidesPdf: dataUrl }
+  // The .pptx is what students download; the .pdf is what the inline viewer opens.
+  function setSlides(picked: { pptx?: string; pdf?: string }) {
+    const updated = { ...data }
+    if (picked.pptx) updated.slidesPptx = picked.pptx
+    if (picked.pdf) updated.slidesPdf = picked.pdf
     try {
       savePathwayEdit(category.slug, pathway.slug, updated)
       setHasEdits(true)
     } catch {
-      // A large PDF can overflow localStorage; keep it for this session only.
+      // A large deck can overflow localStorage; keep it for this session only.
       window.alert('슬라이드가 커서 저장은 못 했지만 이번 세션에서는 볼 수 있습니다.')
     }
     setData(updated)
@@ -418,7 +421,7 @@ export function EditablePathway({
                 pdf={data.slidesPdf}
                 filename={`${data.slug}.pptx`}
                 canEdit={Boolean(user)}
-                onUploadPdf={setSlidesPdf}
+                onUpload={setSlides}
                 onDelete={deleteSlides}
               />
             )}
