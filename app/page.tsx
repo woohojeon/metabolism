@@ -28,7 +28,7 @@ function HeroMap() {
         <div className="relative aspect-[16/9] w-full overflow-hidden bg-ink">
           <Image
             src="/images/chemistry.jpg"
-            alt="The metabolic map"
+            alt="대사 지도"
             fill
             priority
             className="object-cover opacity-95 transition-transform duration-500 group-hover:scale-[1.02]"
@@ -41,13 +41,13 @@ function HeroMap() {
               <MetaDate className="text-white/70">Metabolism Overview</MetaDate>
             </div>
             <h1 className="mt-2 max-w-3xl text-balance text-2xl font-extrabold leading-tight text-white sm:text-4xl">
-              The Metabolic Map: How Cells Transform Matter and Energy
+              대사 지도: 세포는 물질과 에너지를 어떻게 바꾸는가
             </h1>
             <p className="mt-3 max-w-2xl text-[13px] leading-snug text-white/85 sm:text-[15px]">
-              Every reaction in the body connects into one vast, interlocking network. This
-              course follows that network through four families of molecules — carbohydrate,
-              lipid, protein, and nucleic acid — and the pathways that build, store, and break
-              them down.
+              몸속에서 일어나는 모든 반응은 서로 맞물려 하나의 거대한 네트워크를
+              이룹니다. 이 강의는 탄수화물, 지질, 단백질, 핵산 — 네 갈래의 분자를
+              따라 그 네트워크를 훑으며, 이들을 만들고 저장하고 분해하는 대사
+              경로를 다룹니다.
             </p>
           </div>
         </div>
