@@ -27,13 +27,11 @@ export const usingSupabase = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL)
 
 const LOCAL_KEY = 'vbiochem-students'
 
+// The administrator plus one example student, so the page has something to
+// show before any account has been created.
 const SEED: Student[] = [
   { id: 'a0', name: 'Jaewon Seol', username: ADMIN_USERNAME, password: '1234' },
-  { id: 'a1', name: '김도윤', username: 'vet2601', password: 'metab-2601' },
-  { id: 'a2', name: '이서연', username: 'vet2602', password: 'metab-2602' },
-  { id: 'a3', name: '박지훈', username: 'vet2603', password: 'metab-2603' },
-  { id: 'a4', name: '최수빈', username: 'vet2604', password: 'metab-2604' },
-  { id: 'a5', name: '정하늘', username: 'vet2605', password: 'metab-2605' },
+  { id: 'a1', name: '전우호', username: 'vet2601', password: 'metab-2601' },
 ]
 
 function readLocal(): Student[] {

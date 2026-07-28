@@ -2,18 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import {
-  Check,
-  Copy,
-  Eye,
-  EyeOff,
-  Lock,
-  Pencil,
-  Plus,
-  Search,
-  Trash2,
-  X,
-} from 'lucide-react'
+import { Check, Eye, EyeOff, Lock, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 import { useAuth } from './auth-provider'
 import { CategoryLabel } from './article-bits'
 import { LoginDialog } from './login-dialog'
@@ -23,7 +12,6 @@ import {
   deleteStudent,
   listStudents,
   updateStudent,
-  usingSupabase,
   type Student,
 } from '@/lib/students'
 
@@ -51,7 +39,6 @@ export function AdminStudents() {
   const [adding, setAdding] = useState(false)
   const [newDraft, setNewDraft] = useState<Draft>(EMPTY)
   const [confirmId, setConfirmId] = useState<string | null>(null)
-  const [copiedId, setCopiedId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   // `silent` re-reads the roster after an edit without flashing the skeleton
@@ -116,18 +103,6 @@ export function AdminStudents() {
       setNewDraft(EMPTY)
       setAdding(false)
     })
-
-  const copy = async (row: Student) => {
-    try {
-      await navigator.clipboard.writeText(
-        `아이디: ${row.username}  비밀번호: ${row.password}`,
-      )
-      setCopiedId(row.id)
-      setTimeout(() => setCopiedId(null), 1500)
-    } catch {
-      setError('클립보드에 복사할 수 없습니다.')
-    }
-  }
 
   // ------------------------------------------------------------------- gating
 
@@ -199,23 +174,10 @@ export function AdminStudents() {
     <>
       {/* Masthead */}
       <header className="border-b border-neutral-200 pb-7">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <CategoryLabel>Administration</CategoryLabel>
-            <h1 className="mt-1 text-4xl font-extrabold leading-tight sm:text-5xl">
-              Student Accounts
-            </h1>
-            <p className="mt-2 max-w-[52ch] text-[15px] leading-relaxed text-neutral-600">
-              수업 자료에 접근할 수 있는 계정 목록입니다. 이름과 아이디, 비밀번호를
-              지정해 학생에게 전달하세요.
-            </p>
-          </div>
-          {!usingSupabase && (
-            <span className="rounded-full border border-neutral-300 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-              Local demo · 이 브라우저에만 저장
-            </span>
-          )}
-        </div>
+        <CategoryLabel>Administration</CategoryLabel>
+        <h1 className="mt-1 text-4xl font-extrabold leading-tight sm:text-5xl">
+          Student Accounts
+        </h1>
 
         {/* Counts */}
         <dl className="mt-7 grid grid-cols-2 gap-px overflow-hidden bg-neutral-200 sm:grid-cols-3">
@@ -295,9 +257,9 @@ export function AdminStudents() {
             <tr className="border-b-2 border-foreground">
               <th className={`w-10 pb-2 pr-3 ${LABEL}`}>#</th>
               <th className={`pb-2 pr-3 ${LABEL}`}>Name</th>
-              <th className={`pb-2 pr-3 ${LABEL}`}>Username</th>
+              <th className={`pb-2 pr-3 ${LABEL}`}>ID</th>
               <th className={`pb-2 pr-3 ${LABEL}`}>Password</th>
-              <th className={`w-[172px] pb-2 text-right ${LABEL}`}>Actions</th>
+              <th className={`w-[140px] pb-2 text-right ${LABEL}`}>Actions</th>
             </tr>
           </thead>
 
@@ -481,16 +443,6 @@ export function AdminStudents() {
                           </>
                         ) : (
                           <>
-                            <RowButton
-                              onClick={() => copy(row)}
-                              title="아이디와 비밀번호 복사"
-                            >
-                              {copiedId === row.id ? (
-                                <Check className="size-4 text-science-red" />
-                              ) : (
-                                <Copy className="size-4" />
-                              )}
-                            </RowButton>
                             <RowButton onClick={() => startEdit(row)}>
                               <Pencil className="size-4" />
                               Edit
@@ -531,11 +483,6 @@ export function AdminStudents() {
         </table>
       </div>
 
-      <p className="mt-6 text-[13px] leading-relaxed text-neutral-500">
-        비밀번호는 관리자가 학생에게 전달할 수 있도록 그대로 저장됩니다. 이
-        표는 관리자 계정으로만 열람할 수 있으며, 학생 계정으로는 다른 사람의
-        비밀번호를 볼 수 없습니다.
-      </p>
     </>
   )
 }
