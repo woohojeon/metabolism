@@ -17,3 +17,7 @@ out/
 
 # TypeScript incremental build info
 tsconfig.tsbuildinfo
+
+# Local reference material, not part of the site (kept on disk, out of the repo)
+roboto-2-main/
+react-app-from-screenshot.zip
