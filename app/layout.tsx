@@ -21,21 +21,11 @@ export const metadata: Metadata = {
   description:
     'An interactive metabolic pathway map for Veterinary Biochemistry — carbohydrate, lipid, protein, and nucleic acid metabolism.',
   generator: 'v0.app',
+  // One SVG for every size: it carries its own light/dark handling, so the
+  // per-scheme PNGs it used to sit behind would only have overridden it with
+  // the old artwork.
   icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
+    icon: [{ url: '/icon.svg', type: 'image/svg+xml' }],
     apple: '/apple-icon.png',
   },
 }
