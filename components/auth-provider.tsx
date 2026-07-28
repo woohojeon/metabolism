@@ -1,23 +1,33 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState } from 'react'
+import { ADMIN_USERNAME, endSession, verifyLogin } from '@/lib/students'
 
 type AuthContextValue = {
   user: string | null
-  login: (username: string, password: string) => boolean
+  /** True for the roster's administrator account. */
+  isAdmin: boolean
+  /** False until the stored session has been read, so pages can avoid a flash. */
+  ready: boolean
+  login: (username: string, password: string) => Promise<boolean>
   logout: () => void
 }
 
-// Lightweight client-side gate for this educational site.
-// Credentials are intentionally fixed per request.
-const VALID_USER = 'jbnu'
-const VALID_PASS = '1234'
+// Sign-ins are checked against the roster in lib/students.ts — against Supabase
+// through /api/login when it is configured, against the seeded local roster
+// otherwise.
+//
+// What lives here is only the *display* side of the session. `isAdmin` decides
+// what the page renders, not what the page may read: /api/students accepts the
+// httpOnly cookie set by /api/login and nothing else, so editing a value in
+// localStorage reveals an empty admin screen rather than anyone's password.
 const STORAGE_KEY = 'vbiochem-user'
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<string | null>(null)
+  const [ready, setReady] = useState(false)
 
   useEffect(() => {
     try {
@@ -26,19 +36,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ignore storage access errors
     }
+    setReady(true)
   }, [])
 
-  const login = (username: string, password: string) => {
-    if (username === VALID_USER && password === VALID_PASS) {
-      setUser(username)
-      try {
-        localStorage.setItem(STORAGE_KEY, username)
-      } catch {
-        // ignore
-      }
-      return true
+  const login = async (username: string, password: string) => {
+    const id = username.trim()
+    const { ok } = await verifyLogin(id, password)
+    if (!ok) return false
+
+    setUser(id)
+    try {
+      localStorage.setItem(STORAGE_KEY, id)
+    } catch {
+      // ignore
     }
-    return false
+    return true
   }
 
   const logout = () => {
@@ -48,10 +60,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ignore
     }
+    void endSession()
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider
+      value={{ user, isAdmin: user === ADMIN_USERNAME, ready, login, logout }}
+    >
       {children}
     </AuthContext.Provider>
   )

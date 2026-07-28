@@ -14,14 +14,16 @@ export function LoginDialog({
   const { login } = useAuth()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState(false)
+  const [error, setError] = useState('')
+  const [pending, setPending] = useState(false)
   const userRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (open) {
       setUsername('')
       setPassword('')
-      setError(false)
+      setError('')
+      setPending(false)
       const t = setTimeout(() => userRef.current?.focus(), 50)
       return () => clearTimeout(t)
     }
@@ -29,12 +31,19 @@ export function LoginDialog({
 
   if (!open) return null
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (login(username, password)) {
-      onClose()
-    } else {
-      setError(true)
+    setPending(true)
+    try {
+      if (await login(username, password)) {
+        onClose()
+      } else {
+        setError('Incorrect username or password.')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '로그인에 실패했습니다.')
+    } finally {
+      setPending(false)
     }
   }
 
@@ -71,7 +80,7 @@ export function LoginDialog({
               value={username}
               onChange={(e) => {
                 setUsername(e.target.value)
-                setError(false)
+                setError('')
               }}
               autoComplete="username"
               className="h-11 rounded-md border border-neutral-300 px-3 text-[15px] outline-none focus:border-foreground"
@@ -87,7 +96,7 @@ export function LoginDialog({
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value)
-                setError(false)
+                setError('')
               }}
               autoComplete="current-password"
               className="h-11 rounded-md border border-neutral-300 px-3 text-[15px] outline-none focus:border-foreground"
@@ -95,16 +104,15 @@ export function LoginDialog({
           </label>
 
           {error && (
-            <p className="text-[13px] font-medium text-science-red">
-              Incorrect username or password.
-            </p>
+            <p className="text-[13px] font-medium text-science-red">{error}</p>
           )}
 
           <button
             type="submit"
-            className="mt-1 h-11 rounded-full bg-science-red text-[12px] font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90"
+            disabled={pending}
+            className="mt-1 h-11 rounded-full bg-science-red text-[12px] font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90 disabled:opacity-60"
           >
-            Sign In
+            {pending ? 'Signing In…' : 'Sign In'}
           </button>
         </form>
       </div>
