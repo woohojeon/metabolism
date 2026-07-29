@@ -5,7 +5,13 @@ import { Pencil, Upload } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { CategoryLabel, MetaDate } from '@/components/article-bits'
 import { useAuth } from '@/components/auth-provider'
-import { clearHomeHero, loadHomeHero, saveHomeHero, type HomeHero } from '@/lib/edits'
+import {
+  clearHomeHero,
+  loadHomeHero,
+  saveHomeHero,
+  type BoxSize,
+  type HomeHero,
+} from '@/lib/edits'
 import { uploadFile } from '@/lib/site-content'
 
 // The home page's opening feature: the photograph, the headline over it and the
@@ -18,6 +24,8 @@ export function HomeHero({ published }: { published: HomeHero }) {
   const [editing, setEditing] = useState(false)
   const [hasEdits, setHasEdits] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Bumped to rebuild the text boxes; see the 크기 초기화 button.
+  const [resetKey, setResetKey] = useState(0)
 
   // Prefer the saved edit over the published copy.
   useEffect(() => {
@@ -93,21 +101,31 @@ export function HomeHero({ published }: { published: HomeHero }) {
             of wrapping. While editing it may wrap, so a long draft stays
             readable rather than running off the banner. */}
         <InlineText
+          key={`title-${resetKey}`}
           as="h1"
           editing={editing}
           value={shown.title}
           onChange={(v) => setDraft((d) => ({ ...d, title: v }))}
+          size={shown.titleBox}
+          onResize={(box) => setDraft((d) => ({ ...d, titleBox: box }))}
           placeholder="제목"
           className={`mt-2 text-[clamp(0.75rem,3.1vw,2.5rem)] font-extrabold leading-tight text-white ${
-            editing ? '' : 'whitespace-nowrap'
+            // A width chosen by hand is a decision about where the headline
+            // wraps, so the one-line rule steps aside for it.
+            editing || shown.titleBox?.width ? '' : 'whitespace-nowrap'
           }`}
         />
         <InlineText
+          key={`body-${resetKey}`}
           editing={editing}
           value={shown.standfirst}
           onChange={(v) => setDraft((d) => ({ ...d, standfirst: v }))}
+          size={shown.bodyBox}
+          onResize={(box) => setDraft((d) => ({ ...d, bodyBox: box }))}
           placeholder="소개글"
-          className="mt-3 max-w-2xl text-[13px] leading-snug text-white/85 sm:text-[15px]"
+          className={`mt-3 text-[13px] leading-snug text-white/85 sm:text-[15px] ${
+            shown.bodyBox?.width ? '' : 'max-w-2xl'
+          }`}
         />
       </div>
     </div>
@@ -133,6 +151,21 @@ export function HomeHero({ published }: { published: HomeHero }) {
                 onPick={(url) => setDraft((d) => ({ ...d, image: url }))}
                 onError={setError}
               />
+              {/* A drag that went wrong has to be undoable without reloading. */}
+              {(draft.titleBox || draft.bodyBox) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraft((d) => ({ ...d, titleBox: undefined, bodyBox: undefined }))
+                    // The dragged width/height live on the nodes themselves, so
+                    // the boxes have to be rebuilt to actually lose them.
+                    setResetKey((k) => k + 1)
+                  }}
+                  className="rounded border border-white/60 bg-black/40 px-2.5 py-1 text-[12px] font-bold text-white transition-colors hover:bg-black/60"
+                >
+                  크기 초기화
+                </button>
+              )}
               <button
                 type="button"
                 onClick={save}
@@ -219,15 +252,34 @@ function ImagePicker({
   )
 }
 
-// A field that keeps its published styling and becomes typable in place. The
-// DOM is seeded once when edit mode opens; writing the value back on every
-// keystroke would rebuild the node and throw the caret to the start.
+// Percentages are measured between text areas, ignoring padding: the editing
+// box is padded (.inline-edit) and the published one is not, so comparing the
+// outer boxes would make every saved width a little too wide.
+function sidePadding(el: HTMLElement) {
+  const style = getComputedStyle(el)
+  return parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)
+}
+
+function contentWidth(el: HTMLElement) {
+  return Math.max(1, el.clientWidth - sidePadding(el))
+}
+
+// A field that keeps its published styling and becomes typable in place, with a
+// corner to drag while editing. The DOM is seeded once when edit mode opens;
+// writing the value back on every keystroke would rebuild the node and throw
+// the caret to the start.
+//
+// The size is put on the node rather than through React: dragging the corner is
+// the browser writing inline width/height itself, and a `style` prop would keep
+// overwriting what the drag just did.
 function InlineText({
   value,
   onChange,
   editing,
   className,
   placeholder,
+  size,
+  onResize,
   as: Tag = 'p',
 }: {
   value: string
@@ -235,10 +287,15 @@ function InlineText({
   editing: boolean
   className?: string
   placeholder?: string
+  size?: BoxSize
+  onResize?: (size: BoxSize) => void
   as?: 'p' | 'h1'
 }) {
   const ref = useRef<HTMLElement>(null)
   const seeded = useRef(false)
+  // Read through a ref so the observer below outlives a new callback identity.
+  const report = useRef(onResize)
+  report.current = onResize
 
   useEffect(() => {
     if (!editing) {
@@ -251,7 +308,53 @@ function InlineText({
     }
   }, [editing, value])
 
-  if (!editing) return <Tag className={className}>{value}</Tag>
+  // Open the handle at the saved size, then follow it as it is dragged.
+  useEffect(() => {
+    const el = ref.current
+    const parent = el?.parentElement
+    if (!editing || !el || !parent) return
+
+    // width/height are border-box here (Tailwind's preflight), so the box's own
+    // padding is added back to land on the saved text width.
+    if (size?.width) {
+      el.style.width = `${(contentWidth(parent) * size.width) / 100 + sidePadding(el)}px`
+    }
+    if (size?.height) el.style.height = `${size.height}px`
+
+    const observer = new ResizeObserver(() => {
+      // An inline width or height means the corner was dragged. Without one the
+      // box is only growing to fit what is being typed, which is not a size
+      // anyone chose and must not be stored.
+      if (!el.style.width && !el.style.height) return
+      report.current?.({
+        width: el.style.width
+          ? Math.round((contentWidth(el) / contentWidth(parent)) * 1000) / 10
+          : undefined,
+        height: el.style.height ? Math.round(el.offsetHeight) : undefined,
+      })
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+    // Seeded once per edit session; re-running as `size` changes would fight
+    // the drag that changed it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing])
+
+  if (!editing) {
+    // A dragged height is a floor, never a ceiling: copy taller than the box
+    // pushes it open rather than being cut off.
+    return (
+      <Tag
+        className={className}
+        style={{
+          width: size?.width ? `${size.width}%` : undefined,
+          minHeight: size?.height ? `${size.height}px` : undefined,
+        }}
+      >
+        {value}
+      </Tag>
+    )
+  }
 
   return (
     <Tag
@@ -261,7 +364,7 @@ function InlineText({
       role="textbox"
       aria-multiline="true"
       data-placeholder={placeholder}
-      className={`inline-edit ${className ?? ''}`}
+      className={`inline-edit max-w-full resize overflow-auto ${className ?? ''}`}
       onInput={(e) => onChange((e.currentTarget as HTMLElement).innerText)}
       onPaste={(e) => {
         // Paste as plain text so pasted markup can't leak into the page.

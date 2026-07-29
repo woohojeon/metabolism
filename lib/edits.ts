@@ -35,11 +35,21 @@ export function clearPathwayEdit(
 
 // The home page hero: its headline, the paragraph under it, and the background
 // photograph. One document, shared the same way as everything else.
+
+/**
+ * A text box's size, as chosen by dragging its corner while editing. The width
+ * is a percentage so the box keeps its proportions on a narrow screen; the
+ * height is in pixels, and only ever a floor — copy is never clipped.
+ */
+export type BoxSize = { width?: number; height?: number }
+
 export type HomeHero = {
   title: string
   standfirst: string
   /** A path under /public, or a URL from uploadFile once an image is replaced. */
   image: string
+  titleBox?: BoxSize
+  bodyBox?: BoxSize
 }
 
 const HERO_KEY = 'metabolism-home-hero'
