@@ -33,6 +33,29 @@ export function clearPathwayEdit(
   return clearContent(keyFor(categorySlug, pathwaySlug))
 }
 
+// The home page hero: its headline, the paragraph under it, and the background
+// photograph. One document, shared the same way as everything else.
+export type HomeHero = {
+  title: string
+  standfirst: string
+  /** A path under /public, or a URL from uploadFile once an image is replaced. */
+  image: string
+}
+
+const HERO_KEY = 'metabolism-home-hero'
+
+export function loadHomeHero(): Promise<HomeHero | null> {
+  return loadContent<HomeHero>(HERO_KEY)
+}
+
+export function saveHomeHero(hero: HomeHero): Promise<void> {
+  return saveContent(HERO_KEY, hero)
+}
+
+export function clearHomeHero(): Promise<void> {
+  return clearContent(HERO_KEY)
+}
+
 // Category-level figure gallery edits (add/remove images), shared the same way.
 // The entries are URLs from /api/upload rather than data: URLs once Supabase is
 // configured, which is also what keeps this document small.

@@ -2,7 +2,8 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { SiteHeader } from '@/components/site-header'
 import { SiteFooter } from '@/components/site-footer'
-import { CategoryLabel, MetaDate, ArrowLink } from '@/components/article-bits'
+import { CategoryLabel, ArrowLink } from '@/components/article-bits'
+import { HomeHero } from '@/components/home-hero'
 import { MacromoleculeSlider } from '@/components/macromolecule-slider'
 import { Wordmark } from '@/components/wordmark'
 import { instructor } from '@/lib/instructor'
@@ -21,42 +22,15 @@ function Masthead() {
   )
 }
 
-function HeroMap() {
-  return (
-    <section id="map" className="mt-8 scroll-mt-20">
-      <Link href="/map" className="group block">
-        <div className="relative aspect-[16/9] w-full overflow-hidden bg-ink">
-          <Image
-            src="/images/chemistry.jpg"
-            alt="대사 지도"
-            fill
-            priority
-            className="object-cover opacity-95 transition-transform duration-500 group-hover:scale-[1.02]"
-            sizes="(min-width: 1024px) 1280px, 100vw"
-          />
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-6 pt-24 sm:p-10">
-            <div className="flex items-center gap-2">
-              <CategoryLabel>Feature</CategoryLabel>
-              <span className="text-white/40">|</span>
-              <MetaDate className="text-white/70">Metabolism Overview</MetaDate>
-            </div>
-            {/* One line at every width: the type scales with the viewport
-                instead of wrapping, so the fixed font sizes and max-width that
-                forced a second line are gone. */}
-            <h1 className="mt-2 whitespace-nowrap text-[clamp(0.75rem,3.1vw,2.5rem)] font-extrabold leading-tight text-white">
-              대사 지도: 세포는 물질과 에너지를 어떻게 바꾸는가
-            </h1>
-            <p className="mt-3 max-w-2xl text-[13px] leading-snug text-white/85 sm:text-[15px]">
-              몸속에서 일어나는 모든 반응은 서로 맞물려 하나의 거대한 네트워크를
-              이룹니다. 탄수화물, 지질, 단백질, 핵산 네 갈래의 분자를 따라 그
-              네트워크를 훑으며, 이들을 만들고 저장하고 분해하는 대사 경로를
-              다룹니다.
-            </p>
-          </div>
-        </div>
-      </Link>
-    </section>
-  )
+// The published hero copy and picture. The administrator can edit all three in
+// place; components/home-hero.tsx loads whatever was saved over these.
+const publishedHero = {
+  title: '대사 지도: 세포는 물질과 에너지를 어떻게 바꾸는가',
+  standfirst:
+    '몸속에서 일어나는 모든 반응은 서로 맞물려 하나의 거대한 네트워크를 이룹니다. ' +
+    '탄수화물, 지질, 단백질, 핵산 네 갈래의 분자를 따라 그 네트워크를 훑으며, ' +
+    '이들을 만들고 저장하고 분해하는 대사 경로를 다룹니다.',
+  image: '/images/chemistry.jpg',
 }
 
 function InstructorTeaser() {
@@ -108,7 +82,7 @@ export default function HomePage() {
       <SiteHeader />
       <main className="mx-auto max-w-[1280px] px-4 pb-16 lg:px-6">
         <Masthead />
-        <HeroMap />
+        <HomeHero published={publishedHero} />
         <MacromoleculeSlider />
         <InstructorTeaser />
         <div className="mt-10 flex justify-end">
