@@ -24,8 +24,6 @@ export function HomeHero({ published }: { published: HomeHero }) {
   const [editing, setEditing] = useState(false)
   const [hasEdits, setHasEdits] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // Bumped to rebuild the text boxes; see the 크기 초기화 button.
-  const [resetKey, setResetKey] = useState(0)
 
   // Prefer the saved edit over the published copy.
   useEffect(() => {
@@ -97,11 +95,11 @@ export function HomeHero({ published }: { published: HomeHero }) {
           <span className="text-white/40">|</span>
           <MetaDate className="text-white/70">Metabolism Overview</MetaDate>
         </div>
-        {/* One line at every width: the type scales with the viewport instead
-            of wrapping. While editing it may wrap, so a long draft stays
-            readable rather than running off the banner. */}
+        {/* `pre` rather than `nowrap`: the type scales with the viewport
+            instead of wrapping on its own, but a line break typed by hand is
+            kept. Once a width is chosen the headline wraps within it —
+            choosing a width is choosing where the lines break. */}
         <InlineText
-          key={`title-${resetKey}`}
           as="h1"
           editing={editing}
           value={shown.title}
@@ -110,22 +108,19 @@ export function HomeHero({ published }: { published: HomeHero }) {
           onResize={(box) => setDraft((d) => ({ ...d, titleBox: box }))}
           placeholder="제목"
           className={`mt-2 text-[clamp(0.75rem,3.1vw,2.5rem)] font-extrabold leading-tight text-white ${
-            // A width chosen by hand is a decision about where the headline
-            // wraps, so the one-line rule steps aside for it.
-            editing || shown.titleBox?.width ? '' : 'whitespace-nowrap'
+            shown.titleBox?.width ? 'whitespace-pre-wrap' : 'whitespace-pre'
           }`}
         />
         <InlineText
-          key={`body-${resetKey}`}
           editing={editing}
           value={shown.standfirst}
           onChange={(v) => setDraft((d) => ({ ...d, standfirst: v }))}
           size={shown.bodyBox}
           onResize={(box) => setDraft((d) => ({ ...d, bodyBox: box }))}
           placeholder="소개글"
-          className={`mt-3 text-[13px] leading-snug text-white/85 sm:text-[15px] ${
-            shown.bodyBox?.width ? '' : 'max-w-2xl'
-          }`}
+          // Until a width is chosen the standfirst keeps its reading-width cap.
+          boxClassName={shown.bodyBox?.width ? '' : 'max-w-2xl'}
+          className="mt-3 whitespace-pre-wrap text-[13px] leading-snug text-white/85 sm:text-[15px]"
         />
       </div>
     </div>
@@ -155,12 +150,9 @@ export function HomeHero({ published }: { published: HomeHero }) {
               {(draft.titleBox || draft.bodyBox) && (
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={() =>
                     setDraft((d) => ({ ...d, titleBox: undefined, bodyBox: undefined }))
-                    // The dragged width/height live on the nodes themselves, so
-                    // the boxes have to be rebuilt to actually lose them.
-                    setResetKey((k) => k + 1)
-                  }}
+                  }
                   className="rounded border border-white/60 bg-black/40 px-2.5 py-1 text-[12px] font-bold text-white transition-colors hover:bg-black/60"
                 >
                   크기 초기화
@@ -252,26 +244,28 @@ function ImagePicker({
   )
 }
 
-// Percentages are measured between text areas, ignoring padding: the editing
-// box is padded (.inline-edit) and the published one is not, so comparing the
-// outer boxes would make every saved width a little too wide.
-function sidePadding(el: HTMLElement) {
-  const style = getComputedStyle(el)
-  return parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)
-}
-
+// The width a percentage is measured against: the overlay's box less its
+// padding, which is what a child of `width: 100%` fills.
 function contentWidth(el: HTMLElement) {
-  return Math.max(1, el.clientWidth - sidePadding(el))
+  const style = getComputedStyle(el)
+  const inset = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)
+  return Math.max(1, el.clientWidth - inset)
 }
 
-// A field that keeps its published styling and becomes typable in place, with a
-// corner to drag while editing. The DOM is seeded once when edit mode opens;
-// writing the value back on every keystroke would rebuild the node and throw
-// the caret to the start.
-//
-// The size is put on the node rather than through React: dragging the corner is
-// the browser writing inline width/height itself, and a `style` prop would keep
-// overwriting what the drag just did.
+/**
+ * A field that keeps its published styling and becomes typable in place, with a
+ * corner to drag it wider or taller.
+ *
+ * Both modes take their size from the same two numbers, and React owns them:
+ * the drag reports a size, the size comes back as style, and nothing is written
+ * to the node behind React's back. That is what makes the box being edited the
+ * box that publishes — a browser-drawn resize corner writes inline width and
+ * height of its own, which then linger over the published styling.
+ *
+ * The text is seeded into the DOM once when edit mode opens. Writing the value
+ * back on every keystroke would rebuild the node and throw the caret to the
+ * start.
+ */
 function InlineText({
   value,
   onChange,
@@ -280,6 +274,7 @@ function InlineText({
   placeholder,
   size,
   onResize,
+  boxClassName,
   as: Tag = 'p',
 }: {
   value: string
@@ -289,13 +284,13 @@ function InlineText({
   placeholder?: string
   size?: BoxSize
   onResize?: (size: BoxSize) => void
+  /** Sizing rules — they belong to the box, so a drag starts from them. */
+  boxClassName?: string
   as?: 'p' | 'h1'
 }) {
   const ref = useRef<HTMLElement>(null)
+  const boxRef = useRef<HTMLDivElement>(null)
   const seeded = useRef(false)
-  // Read through a ref so the observer below outlives a new callback identity.
-  const report = useRef(onResize)
-  report.current = onResize
 
   useEffect(() => {
     if (!editing) {
@@ -308,69 +303,81 @@ function InlineText({
     }
   }, [editing, value])
 
-  // Open the handle at the saved size, then follow it as it is dragged.
-  useEffect(() => {
-    const el = ref.current
-    const parent = el?.parentElement
-    if (!editing || !el || !parent) return
+  // A chosen width applies from `sm` up. Below it the banner is barely wider
+  // than the text, so a column of 40% would leave a sliver to read.
+  //
+  // A chosen height is a floor, never a ceiling: copy taller than the box opens
+  // it instead of spilling out.
+  const sizing = {
+    '--box-w': size?.width ? `${size.width}%` : '100%',
+    minHeight: size?.height ? `${size.height}px` : undefined,
+  } as React.CSSProperties
 
-    // width/height are border-box here (Tailwind's preflight), so the box's own
-    // padding is added back to land on the saved text width.
-    if (size?.width) {
-      el.style.width = `${(contentWidth(parent) * size.width) / 100 + sidePadding(el)}px`
-    }
-    if (size?.height) el.style.height = `${size.height}px`
-
-    const observer = new ResizeObserver(() => {
-      // An inline width or height means the corner was dragged. Without one the
-      // box is only growing to fit what is being typed, which is not a size
-      // anyone chose and must not be stored.
-      if (!el.style.width && !el.style.height) return
-      report.current?.({
-        width: el.style.width
-          ? Math.round((contentWidth(el) / contentWidth(parent)) * 1000) / 10
-          : undefined,
-        height: el.style.height ? Math.round(el.offsetHeight) : undefined,
-      })
-    })
-    observer.observe(el)
-    return () => observer.disconnect()
-    // Seeded once per edit session; re-running as `size` changes would fight
-    // the drag that changed it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editing])
+  const box = `w-full sm:w-[var(--box-w)] ${boxClassName ?? ''}`
 
   if (!editing) {
-    // A dragged height is a floor, never a ceiling: copy taller than the box
-    // pushes it open rather than being cut off.
     return (
-      <Tag
-        className={className}
-        style={{
-          width: size?.width ? `${size.width}%` : undefined,
-          minHeight: size?.height ? `${size.height}px` : undefined,
-        }}
-      >
+      <Tag className={`${box} ${className ?? ''}`} style={sizing}>
         {value}
       </Tag>
     )
   }
 
+  // Follow the pointer: each move reports a size, which comes back as the
+  // width of this box on the next render.
+  function startResize(e: React.PointerEvent) {
+    e.preventDefault()
+    const node = boxRef.current
+    const overlay = node?.parentElement
+    if (!node || !overlay) return
+
+    const basis = contentWidth(overlay)
+    const fromX = e.clientX
+    const fromY = e.clientY
+    const startWidth = node.offsetWidth
+    const startHeight = node.offsetHeight
+
+    const move = (ev: PointerEvent) => {
+      const width = Math.min(basis, Math.max(80, startWidth + ev.clientX - fromX))
+      const height = Math.max(32, startHeight + ev.clientY - fromY)
+      onResize?.({
+        width: Math.round((width / basis) * 1000) / 10,
+        height: Math.round(height),
+      })
+    }
+    const stop = () => window.removeEventListener('pointermove', move)
+
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', stop, { once: true })
+    window.addEventListener('pointercancel', stop, { once: true })
+  }
+
   return (
-    <Tag
-      ref={ref as never}
-      contentEditable
-      suppressContentEditableWarning
-      role="textbox"
-      aria-multiline="true"
-      data-placeholder={placeholder}
-      className={`inline-edit max-w-full resize overflow-auto ${className ?? ''}`}
-      onInput={(e) => onChange((e.currentTarget as HTMLElement).innerText)}
-      onPaste={(e) => {
-        // Paste as plain text so pasted markup can't leak into the page.
-        e.preventDefault()
-        document.execCommand('insertText', false, e.clipboardData.getData('text/plain'))
-      }}
-    />
+    <div ref={boxRef} className={`relative ${box}`} style={sizing}>
+      <Tag
+        ref={ref as never}
+        contentEditable
+        suppressContentEditableWarning
+        role="textbox"
+        aria-multiline="true"
+        data-placeholder={placeholder}
+        // .inline-edit pads the box and pulls it back out with a negative
+        // margin; the extra width hands that padding back, so the line breaks
+        // where the published text breaks.
+        className={`inline-edit block h-full w-[calc(100%+0.75rem)] ${className ?? ''}`}
+        onInput={(e) => onChange((e.currentTarget as HTMLElement).innerText)}
+        onPaste={(e) => {
+          // Paste as plain text so pasted markup can't leak into the page.
+          e.preventDefault()
+          document.execCommand('insertText', false, e.clipboardData.getData('text/plain'))
+        }}
+      />
+      <span
+        role="presentation"
+        onPointerDown={startResize}
+        title="크기 조절"
+        className="absolute -bottom-1.5 -right-1.5 size-3.5 cursor-se-resize touch-none rounded-sm border border-white/70 bg-white/80 shadow-sm"
+      />
+    </div>
   )
 }
