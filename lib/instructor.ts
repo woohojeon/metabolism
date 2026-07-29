@@ -3,7 +3,7 @@ export const instructor = {
   title: 'Professor',
   department: 'Veterinary Biochemistry',
   college: 'College of Veterinary Medicine, Jeonbuk National University',
-  image: '/images/prof.jpg',
+  image: '/images/prof.webp',
   email: 'jwsseol@jbnu.ac.kr',
   phone: '063-850-0964',
   office: 'Room 407, 1st Veterinary Building, Iksan Specialized Campus',

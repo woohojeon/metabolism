@@ -4,36 +4,21 @@ import { useEffect, useRef, useState } from 'react'
 import { Download, Lock, Maximize2, Trash2, Upload, X } from 'lucide-react'
 import { useAuth } from './auth-provider'
 import { LoginDialog } from './login-dialog'
-import { convertPptxToPdf, toStorableUrl } from '@/lib/pptx-to-pdf'
+import { uploadFile } from '@/lib/site-content'
 
-function readDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const r = new FileReader()
-    r.onload = () => resolve(r.result as string)
-    r.onerror = () => reject(r.error)
-    r.readAsDataURL(file)
-  })
-}
-
-// The lecture-slide card. Logged-in users can open the deck inline (as a PDF,
-// no download needed), download the original .pptx, or upload a new deck.
-//
-// Upload takes the .pptx — that is the file students download. A .pptx cannot be
-// rendered in a browser, so it is converted to PDF via CloudConvert on the way
-// in, and the viewer opens that PDF. Uploading a .pdf directly still works.
+// The lecture-slide card. Slides are PDFs: logged-in users open one inline or
+// download it, and the administrator uploads a replacement.
 export function SlideViewer({
-  pptx,
   pdf,
   filename,
   canEdit,
   onUpload,
   onDelete,
 }: {
-  pptx?: string
   pdf?: string
   filename: string
   canEdit: boolean
-  onUpload?: (picked: { pptx?: string; pdf?: string }) => void
+  onUpload?: (pdf: string) => void
   onDelete?: () => void
 }) {
   const { user } = useAuth()
@@ -43,40 +28,24 @@ export function SlideViewer({
   const fileRef = useRef<HTMLInputElement>(null)
 
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? [])
+    const file = e.target.files?.[0]
     if (e.target) e.target.value = ''
-    if (!files.length || !onUpload) return
+    if (!file || !onUpload) return
 
-    // A .pptx and a ready-made .pdf export can be picked together; the pptx is
-    // only converted when no pdf came with it.
-    const deck = files.find((f) => /\.pptx$/i.test(f.name))
-    const pdfFile = files.find((f) => /\.pdf$/i.test(f.name))
-    if (!deck && !pdfFile) {
-      window.alert('.pptx 또는 .pdf 파일을 선택하세요.')
+    if (!/\.pdf$/i.test(file.name)) {
+      window.alert('.pdf 파일을 선택하세요.')
       return
     }
 
     setBusy('올리는 중…')
-    const picked: { pptx?: string; pdf?: string } = {}
     try {
-      if (deck) picked.pptx = await readDataUrl(deck)
-      if (pdfFile) picked.pdf = await readDataUrl(pdfFile)
-
-      if (deck && !pdfFile) {
-        const url = await convertPptxToPdf(deck, (stage) =>
-          setBusy(stage === 'uploading' ? '올리는 중…' : 'PDF로 변환 중…'),
-        )
-        picked.pdf = await toStorableUrl(url)
-      }
+      onUpload(await uploadFile(file))
     } catch (err) {
-      // Keep whatever made it through — a failed conversion still leaves the
-      // .pptx downloadable, and a PDF can be added by hand afterwards.
       window.alert(
-        err instanceof Error ? err.message : '슬라이드를 처리하지 못했습니다.',
+        err instanceof Error ? err.message : '슬라이드를 올리지 못했습니다.',
       )
     } finally {
       setBusy(null)
-      if (picked.pptx || picked.pdf) onUpload(picked)
     }
   }
 
@@ -100,14 +69,14 @@ export function SlideViewer({
                 슬라이드 열기
               </button>
             )}
-            {pptx && (
+            {pdf && (
               <a
-                href={pptx}
+                href={pdf}
                 download={filename}
                 className="inline-flex items-center justify-center gap-2 rounded border border-science-red px-4 py-2 text-[12px] font-bold text-science-red transition-colors hover:bg-science-red hover:text-white"
               >
                 <Download className="size-[15px]" />
-                .pptx 내려받기
+                PDF 내려받기
               </a>
             )}
             {canEdit && onUpload && (
@@ -115,8 +84,7 @@ export function SlideViewer({
                 <input
                   ref={fileRef}
                   type="file"
-                  multiple
-                  accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation,.pdf,application/pdf"
+                  accept=".pdf,application/pdf"
                   onChange={onPick}
                   className="hidden"
                 />
@@ -127,17 +95,11 @@ export function SlideViewer({
                   className="inline-flex items-center justify-center gap-2 rounded border border-neutral-300 px-4 py-2 text-[12px] font-bold text-neutral-600 transition-colors hover:border-foreground disabled:opacity-50"
                 >
                   <Upload className="size-[14px]" />
-                  {busy ?? '슬라이드 업로드 (.pptx)'}
+                  {busy ?? '슬라이드 업로드 (.pdf)'}
                 </button>
-                {pptx && !pdf && !busy && (
-                  <p className="text-[11px] leading-snug text-neutral-500">
-                    PDF 변환본이 없습니다. .pptx 를 다시 올리거나, PowerPoint에서 내보낸
-                    PDF를 직접 올리면 &lsquo;슬라이드 열기&rsquo;가 켜집니다.
-                  </p>
-                )}
               </>
             )}
-            {canEdit && onDelete && (pdf || pptx) && (
+            {canEdit && onDelete && pdf && (
               <button
                 type="button"
                 onClick={onDelete}
@@ -148,10 +110,10 @@ export function SlideViewer({
               </button>
             )}
           </div>
-          {!pdf && !pptx && (
+          {!pdf && (
             <p className="mt-2 text-[12px] leading-snug text-neutral-500">
               아직 등록된 강의 슬라이드가 없습니다.
-              {canEdit && ' .pptx를 업로드해 추가하세요.'}
+              {canEdit && ' PDF를 업로드해 추가하세요.'}
             </p>
           )}
         </>

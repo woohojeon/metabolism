@@ -1,7 +1,9 @@
 import type { Pathway } from '@/lib/pathways'
+import { clearContent, loadContent, saveContent } from '@/lib/site-content'
 
-// Persist pathway article edits in the browser's localStorage.
-// This is a static site with no backend, so edits stay only in "this browser".
+// Pathway article edits, stored per category/pathway. These go to Supabase when
+// it is configured, so an edit is visible on every computer; see
+// lib/site-content.ts for the fallback when it is not.
 
 const PREFIX = 'metabolism-edit:'
 
@@ -12,49 +14,37 @@ function keyFor(categorySlug: string, pathwaySlug: string) {
 export function loadPathwayEdit(
   categorySlug: string,
   pathwaySlug: string,
-): Pathway | null {
-  if (typeof window === 'undefined') return null
-  try {
-    const raw = window.localStorage.getItem(keyFor(categorySlug, pathwaySlug))
-    return raw ? (JSON.parse(raw) as Pathway) : null
-  } catch {
-    return null
-  }
+): Promise<Pathway | null> {
+  return loadContent<Pathway>(keyFor(categorySlug, pathwaySlug))
 }
 
 export function savePathwayEdit(
   categorySlug: string,
   pathwaySlug: string,
   data: Pathway,
-) {
-  if (typeof window === 'undefined') return
-  window.localStorage.setItem(keyFor(categorySlug, pathwaySlug), JSON.stringify(data))
+): Promise<void> {
+  return saveContent(keyFor(categorySlug, pathwaySlug), data)
 }
 
-export function clearPathwayEdit(categorySlug: string, pathwaySlug: string) {
-  if (typeof window === 'undefined') return
-  window.localStorage.removeItem(keyFor(categorySlug, pathwaySlug))
+export function clearPathwayEdit(
+  categorySlug: string,
+  pathwaySlug: string,
+): Promise<void> {
+  return clearContent(keyFor(categorySlug, pathwaySlug))
 }
 
-// Category-level figure gallery edits (add/remove images), kept per browser
-// like the pathway edits above.
+// Category-level figure gallery edits (add/remove images), shared the same way.
+// The entries are URLs from /api/upload rather than data: URLs once Supabase is
+// configured, which is also what keeps this document small.
 const FIGURES_PREFIX = 'metabolism-cat-figures:'
 
-export function loadCategoryFigures(categorySlug: string): string[] | null {
-  if (typeof window === 'undefined') return null
-  try {
-    const raw = window.localStorage.getItem(FIGURES_PREFIX + categorySlug)
-    return raw ? (JSON.parse(raw) as string[]) : null
-  } catch {
-    return null
-  }
+export function loadCategoryFigures(categorySlug: string): Promise<string[] | null> {
+  return loadContent<string[]>(FIGURES_PREFIX + categorySlug)
 }
 
-export function saveCategoryFigures(categorySlug: string, figures: string[]) {
-  if (typeof window === 'undefined') return
-  try {
-    window.localStorage.setItem(FIGURES_PREFIX + categorySlug, JSON.stringify(figures))
-  } catch {
-    // A large data: URL upload can overflow localStorage; ignore.
-  }
+export function saveCategoryFigures(
+  categorySlug: string,
+  figures: string[],
+): Promise<void> {
+  return saveContent(FIGURES_PREFIX + categorySlug, figures)
 }

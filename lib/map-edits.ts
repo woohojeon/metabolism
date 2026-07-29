@@ -1,5 +1,8 @@
-// 대사지도 편집 내용을 브라우저 localStorage 에 저장한다.
-// 백엔드가 없으므로 "이 브라우저"에만 남는다. (추후 Supabase 로 교체)
+// 대사지도 편집 내용을 저장한다. Supabase 가 설정돼 있으면 서버에 저장되어
+// 다른 컴퓨터에서도 같은 지도가 보이고, 아니면 이 브라우저에만 남는다.
+// (lib/site-content.ts 참고)
+
+import { clearContent, loadContent, saveContent } from '@/lib/site-content'
 
 export type NodePatch = Record<string, unknown>
 
@@ -13,32 +16,20 @@ const KEY = 'metabolic-map-edits'
 
 export const emptyEdits: MapEdits = { overrides: {}, deleted: [], added: [] }
 
-export function loadMapEdits(): MapEdits {
-  if (typeof window === 'undefined') return { overrides: {}, deleted: [], added: [] }
-  try {
-    const raw = window.localStorage.getItem(KEY)
-    if (!raw) return { overrides: {}, deleted: [], added: [] }
-    const e = JSON.parse(raw) as MapEdits
-    return {
-      overrides: e.overrides || {},
-      deleted: e.deleted || [],
-      added: e.added || [],
-    }
-  } catch {
-    return { overrides: {}, deleted: [], added: [] }
+export async function loadMapEdits(): Promise<MapEdits> {
+  const e = await loadContent<MapEdits>(KEY)
+  if (!e) return { overrides: {}, deleted: [], added: [] }
+  return {
+    overrides: e.overrides || {},
+    deleted: e.deleted || [],
+    added: e.added || [],
   }
 }
 
-export function saveMapEdits(e: MapEdits) {
-  if (typeof window === 'undefined') return
-  try {
-    window.localStorage.setItem(KEY, JSON.stringify(e))
-  } catch {
-    /* ignore */
-  }
+export function saveMapEdits(e: MapEdits): Promise<void> {
+  return saveContent(KEY, e)
 }
 
-export function clearMapEdits() {
-  if (typeof window === 'undefined') return
-  window.localStorage.removeItem(KEY)
+export function clearMapEdits(): Promise<void> {
+  return clearContent(KEY)
 }

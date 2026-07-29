@@ -17,10 +17,8 @@ export type Pathway = {
   keyStepSvg?: string
   // A diagram laid out in the browser. Takes precedence over `keyStepSvg`.
   keyStepCanvas?: KeyStepCanvas
-  // Downloadable lecture slides (pptx under /public), gated behind login.
-  slidesPptx?: string
-  // Viewable lecture slides (pdf under /public, or a data: URL from an upload),
-  // opened inline without downloading.
+  // Lecture slides as a PDF — a path under /public, or an uploaded file's URL.
+  // Gated behind login: viewable inline and downloadable.
   slidesPdf?: string
   // Supplementary YouTube lectures, embedded at the foot of the article.
   videos?: Video[]
@@ -227,12 +225,7 @@ export const categories: Category[] = [
   }),
 ]
 
-// Downloadable lecture-slide decks, keyed by `${categorySlug}/${pathwaySlug}`.
-const pathwaySlides: Record<string, string> = {
-  'carbohydrate-metabolism/glycolysis': '/downloads/glycolysis.pptx',
-}
-
-// Viewable (PDF) lecture-slide decks, keyed by `${categorySlug}/${pathwaySlug}`.
+// Lecture-slide PDFs, keyed by `${categorySlug}/${pathwaySlug}`.
 const pathwaySlidesPdf: Record<string, string> = {
   'carbohydrate-metabolism/glycolysis': '/downloads/glycolysis.pdf',
 }
@@ -283,7 +276,6 @@ function injectContent(p: Pathway, categorySlug: string) {
     p.overview = content.overview
     if (content.keyStepSvg) p.keyStepSvg = content.keyStepSvg
   }
-  if (pathwaySlides[key]) p.slidesPptx = pathwaySlides[key]
   if (pathwaySlidesPdf[key]) p.slidesPdf = pathwaySlidesPdf[key]
   if (pathwayVideos[key]) p.videos = pathwayVideos[key]
   if (pathwayFigures[key]) p.figures = pathwayFigures[key]

@@ -48,3 +48,36 @@ export class DuplicateUsernameError extends Error {
     super('이미 사용 중인 아이디입니다.')
   }
 }
+
+/** The Storage bucket created by supabase/schema.sql. */
+const BUCKET = 'uploads'
+
+/**
+ * Stores a file in the public `uploads` bucket and returns the URL it is served
+ * from. Also service-role only, so callers must check the caller is an admin.
+ */
+export async function sbUpload(
+  path: string,
+  body: ArrayBuffer,
+  contentType: string,
+): Promise<string> {
+  if (!supabaseReady) throw new Error('Supabase is not configured')
+
+  const res = await fetch(`${URL_BASE}/storage/v1/object/${BUCKET}/${path}`, {
+    method: 'POST',
+    body,
+    headers: {
+      apikey: SERVICE_KEY!,
+      Authorization: `Bearer ${SERVICE_KEY}`,
+      'Content-Type': contentType,
+      // Re-uploading the same path replaces the file rather than failing.
+      'x-upsert': 'true',
+    },
+  })
+
+  if (!res.ok) {
+    throw new Error(`Supabase storage ${res.status}: ${(await res.text()).slice(0, 200)}`)
+  }
+
+  return `${URL_BASE}/storage/v1/object/public/${BUCKET}/${path}`
+}

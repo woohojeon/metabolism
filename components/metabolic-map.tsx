@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@/components/auth-provider'
 import { loadMapEdits, saveMapEdits, clearMapEdits, type MapEdits } from '@/lib/map-edits'
+import { clearContent, loadContent, saveContent } from '@/lib/site-content'
 import { parsePptx } from '@/lib/pptx-import'
 
 const DATA_KEY = 'metabolic-map-data'
@@ -117,7 +118,7 @@ function kindOf(n: N): Kind {
 
 // ---------------------------------------------------------------------------
 export function MetabolicMap() {
-  const { user } = useAuth()
+  const { isAdmin } = useAuth()
   const [zoom, setZoom] = useState(1)
   const [activeSlide, setActiveSlide] = useState<number | null>(null)
   const [editMode, setEditMode] = useState(false)
@@ -191,12 +192,16 @@ export function MetabolicMap() {
     setZoom((z) => Math.round(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z + d)) * 100) / 100)
 
   useEffect(() => {
-    setEdits(loadMapEdits())
-    try {
-      const raw = window.localStorage.getItem(DATA_KEY)
-      if (raw) setMapData(JSON.parse(raw) as Data)
-    } catch { /* ignore */ }
-    setLoaded(true)
+    let stale = false
+    Promise.all([loadMapEdits(), loadContent<Data>(DATA_KEY)]).then(([e, data]) => {
+      if (stale) return
+      setEdits(e)
+      if (data) setMapData(data)
+      // Only now, so the save effect below does not immediately write the
+      // empty state back over what was just loaded.
+      setLoaded(true)
+    })
+    return () => { stale = true }
   }, [])
 
   async function onImport(e: React.ChangeEvent<HTMLInputElement>) {
@@ -211,16 +216,26 @@ export function MetabolicMap() {
       setEdits({ overrides: {}, deleted: [], added: [] })
       setSelId(null)
       setActiveSlide(null)
-      try { window.localStorage.setItem(DATA_KEY, JSON.stringify(parsed)) } catch { /* too big */ }
+      await saveContent(DATA_KEY, parsed)
     } catch (err) {
       console.error(err)
-      window.alert('PPTX 파싱에 실패했습니다. 콘솔을 확인하세요.')
+      window.alert(err instanceof Error && err.message ? err.message : 'PPTX 파싱에 실패했습니다. 콘솔을 확인하세요.')
     } finally {
       setImporting(false)
     }
   }
-  useEffect(() => { if (loaded) saveMapEdits(edits) }, [edits, loaded])
-  useEffect(() => { if (!user) { setEditMode(false); setSelId(null) } }, [user])
+  // 편집은 자동 저장된다. 드래그 중에는 edits 가 연속으로 바뀌므로, 멈춘 뒤
+  // 한 번만 서버로 보낸다. 저장에 실패하면 다른 사람에게는 반영되지 않으므로 알린다.
+  useEffect(() => {
+    if (!loaded) return
+    const timer = setTimeout(() => {
+      saveMapEdits(edits).catch((e: unknown) => {
+        window.alert(e instanceof Error ? e.message : '편집 내용을 저장하지 못했습니다.')
+      })
+    }, 800)
+    return () => clearTimeout(timer)
+  }, [edits, loaded])
+  useEffect(() => { if (!isAdmin) { setEditMode(false); setSelId(null) } }, [isAdmin])
 
   // Ctrl+Z / Cmd+Z 되돌리기 (편집 모드에서만)
   useEffect(() => {
@@ -506,7 +521,7 @@ export function MetabolicMap() {
           {mapData.master_nodes.length > 0 && (
             <button
               type="button"
-              onClick={() => { if (window.confirm('지도를 비울까요?')) { setMapData(EMPTY); setEdits({ overrides: {}, deleted: [], added: [] }); setSelId(null); try { window.localStorage.removeItem(DATA_KEY) } catch {} } }}
+              onClick={() => { if (window.confirm('지도를 비울까요?')) { setMapData(EMPTY); setEdits({ overrides: {}, deleted: [], added: [] }); setSelId(null); clearContent(DATA_KEY).catch(() => {}) } }}
               className="mt-1 w-full text-[11px] font-semibold text-neutral-400 hover:text-science-red"
             >
               지도 비우기
@@ -515,7 +530,7 @@ export function MetabolicMap() {
         </div>
 
         {/* Editor toolbar (logged-in only) */}
-        {user && (
+        {isAdmin && (
           <div className="mb-4 rounded border border-neutral-200 bg-panel/40 p-3">
             <div className="flex items-center justify-between">
               <span className="text-[12px] font-bold uppercase tracking-wider text-neutral-500">Editor</span>
@@ -591,7 +606,7 @@ export function MetabolicMap() {
                   <p className="mt-3 text-[11px] leading-snug text-neutral-400">요소를 클릭해 선택하세요. 본체 드래그=이동, 모서리=크기, 위 손잡이=회전, 선은 양 끝점 드래그.</p>
                 )}
 
-                <button type="button" onClick={() => { if (window.confirm('모든 편집을 지우고 원본으로 되돌릴까요?')) { clearMapEdits(); setEdits({ overrides: {}, deleted: [], added: [] }); setSelId(null) } }} className="mt-3 w-full text-[11px] font-bold text-neutral-400 hover:text-science-red">전체 편집 초기화</button>
+                <button type="button" onClick={() => { if (window.confirm('모든 편집을 지우고 원본으로 되돌릴까요?')) { clearMapEdits().catch(() => {}); setEdits({ overrides: {}, deleted: [], added: [] }); setSelId(null) } }} className="mt-3 w-full text-[11px] font-bold text-neutral-400 hover:text-science-red">전체 편집 초기화</button>
               </>
             )}
           </div>

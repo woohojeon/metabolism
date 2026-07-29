@@ -10,6 +10,7 @@ import { KeyStepCanvas, emptyCanvas, hasCanvas } from '@/components/key-step-can
 import { sanitizeRich } from '@/lib/rich-text'
 import type { Category, Pathway, Video } from '@/lib/pathways'
 import { clearPathwayEdit, loadPathwayEdit, savePathwayEdit } from '@/lib/edits'
+import { uploadFile } from '@/lib/site-content'
 import { useAuth } from '@/components/auth-provider'
 
 // Only the sections the article actually publishes are editable, and only one
@@ -42,36 +43,52 @@ export function EditablePathway({
   const [editing, setEditing] = useState<Section | null>(null)
   const [hasEdits, setHasEdits] = useState(false)
   const [lightbox, setLightbox] = useState<string | null>(null)
-  const { user } = useAuth()
+  const { isAdmin } = useAuth()
 
   useEffect(() => {
-    const saved = loadPathwayEdit(category.slug, pathway.slug)
-    if (saved) {
+    let stale = false
+    loadPathwayEdit(category.slug, pathway.slug).then((saved) => {
+      if (stale || !saved) return
       setData({ ...pathway, ...saved })
       setHasEdits(true)
+    })
+    return () => {
+      stale = true
     }
   }, [category.slug, pathway.slug, pathway])
 
   // Drop out of edit mode if the user logs out mid-edit.
   useEffect(() => {
-    if (!user) setEditing(null)
-  }, [user])
+    if (!isAdmin) setEditing(null)
+  }, [isAdmin])
 
   function startEditing(section: Section) {
     setDraft(clone(data))
     setEditing(section)
   }
 
-  function save() {
-    savePathwayEdit(category.slug, pathway.slug, draft)
+  // Saving reaches the server, so it can fail. Stay in edit mode when it does,
+  // rather than showing changes that no other visitor would see.
+  async function save() {
+    try {
+      await savePathwayEdit(category.slug, pathway.slug, draft)
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '저장하지 못했습니다.')
+      return
+    }
     setData(draft)
     setHasEdits(true)
     setEditing(null)
   }
 
-  function resetToOriginal() {
+  async function resetToOriginal() {
     if (!window.confirm('이 페이지의 모든 수정을 취소하고 원본으로 되돌립니다.')) return
-    clearPathwayEdit(category.slug, pathway.slug)
+    try {
+      await clearPathwayEdit(category.slug, pathway.slug)
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '되돌리지 못했습니다.')
+      return
+    }
     setData(pathway)
     setHasEdits(false)
     setEditing(null)
@@ -115,26 +132,32 @@ export function EditablePathway({
   // Persist an uploaded lecture-slide file straight away — it lives outside the
   // one-section-at-a-time edit flow, so it saves on its own like the map edits.
   // The .pptx is what students download; the .pdf is what the inline viewer opens.
-  function setSlides(picked: { pptx?: string; pdf?: string }) {
-    const updated = { ...data }
-    if (picked.pptx) updated.slidesPptx = picked.pptx
-    if (picked.pdf) updated.slidesPdf = picked.pdf
-    try {
-      savePathwayEdit(category.slug, pathway.slug, updated)
-      setHasEdits(true)
-    } catch {
-      // A large deck can overflow localStorage; keep it for this session only.
-      window.alert('슬라이드가 커서 저장은 못 했지만 이번 세션에서는 볼 수 있습니다.')
-    }
+  async function setSlides(pdf: string) {
+    const updated = { ...data, slidesPdf: pdf }
     setData(updated)
+    try {
+      await savePathwayEdit(category.slug, pathway.slug, updated)
+      setHasEdits(true)
+    } catch (e) {
+      window.alert(
+        e instanceof Error
+          ? e.message
+          : '슬라이드를 저장하지 못했습니다. 이번 세션에서만 보입니다.',
+      )
+    }
   }
 
   // Remove the lecture slides. Empty strings (not undefined) so the cleared
   // value survives JSON and overrides the injected default on reload.
-  function deleteSlides() {
+  async function deleteSlides() {
     if (!window.confirm('강의 슬라이드를 삭제할까요?')) return
-    const updated = { ...data, slidesPdf: '', slidesPptx: '' }
-    savePathwayEdit(category.slug, pathway.slug, updated)
+    const updated = { ...data, slidesPdf: '' }
+    try {
+      await savePathwayEdit(category.slug, pathway.slug, updated)
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '삭제하지 못했습니다.')
+      return
+    }
     setData(updated)
     setHasEdits(true)
   }
@@ -144,17 +167,17 @@ export function EditablePathway({
   const videos = shown('videos')
   const figures = shown('figures')
 
-  // A published section always shows. A logged-in user additionally sees the
+  // A published section always shows. The administrator additionally sees the
   // editable sections even when empty, so content can be *added*, not only
   // changed. (Key Step keeps its own diagram/editor flow.)
-  const hasOverview = data.overview.length > 0 || Boolean(user)
+  const hasOverview = data.overview.length > 0 || isAdmin
   const hasKeyStep =
     Boolean(data.keyStepSvg) || data.steps.length > 0 || hasCanvas(data.keyStepCanvas)
-  const hasVideos = Boolean(data.videos?.length) || Boolean(user)
-  const hasFigures = Boolean(data.figures?.length) || Boolean(user)
+  const hasVideos = Boolean(data.videos?.length) || isAdmin
+  const hasFigures = Boolean(data.figures?.length) || isAdmin
 
   const sectionProps = (section: Section) => ({
-    canEdit: Boolean(user) && editing === null,
+    canEdit: isAdmin && editing === null,
     editing: editing === section,
     onEdit: () => startEditing(section),
     onSave: save,
@@ -163,7 +186,7 @@ export function EditablePathway({
 
   return (
     <>
-      {user && hasEdits && (
+      {isAdmin && hasEdits && (
         <div className="mt-6 flex items-center justify-end">
           <button
             type="button"
@@ -415,12 +438,11 @@ export function EditablePathway({
         {/* Sidebar */}
         <aside className="lg:col-span-4">
           <div className="sticky top-20 space-y-6">
-            {(data.slidesPptx || data.slidesPdf || user) && (
+            {(data.slidesPdf || isAdmin) && (
               <SlideViewer
-                pptx={data.slidesPptx}
                 pdf={data.slidesPdf}
-                filename={`${data.slug}.pptx`}
-                canEdit={Boolean(user)}
+                filename={`${data.slug}.pdf`}
+                canEdit={isAdmin}
                 onUpload={setSlides}
                 onDelete={deleteSlides}
               />
@@ -548,8 +570,8 @@ function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
 }
 
 // ---------------------------------------------------------------------------
-// Add a figure to the gallery by uploading an image file (kept as a data: URL
-// so it survives with the rest of the pathway edit).
+// Add a figure to the gallery by uploading an image file. The upload is stored
+// once and only its URL travels with the pathway edit.
 function FigureAdder({ onAdd }: { onAdd: (src: string) => void }) {
   const [busy, setBusy] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -560,13 +582,9 @@ function FigureAdder({ onAdd }: { onAdd: (src: string) => void }) {
     if (!file) return
     setBusy(true)
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const r = new FileReader()
-        r.onload = () => resolve(r.result as string)
-        r.onerror = () => reject(r.error)
-        r.readAsDataURL(file)
-      })
-      onAdd(dataUrl)
+      onAdd(await uploadFile(file))
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : '업로드에 실패했습니다.')
     } finally {
       setBusy(false)
     }

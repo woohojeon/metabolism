@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // No `output: 'export'` — the .pptx → PDF conversion needs a server route to
-  // hold the CloudConvert API key (see app/api/convert-slides/route.ts).
+  // No `output: 'export'` — /api/content and /api/upload need a server to hold
+  // the Supabase service-role key.
   typescript: {
     ignoreBuildErrors: true,
   },
