@@ -69,6 +69,14 @@ export function MacromoleculeSlider() {
   const canPrev = index > 0
   const canNext = index < maxIndex
 
+  // Which covers are on screen, out of all of them. Counting positions instead
+  // would stop the tally short of the total — six stops hold nine categories —
+  // and would make the total shrink as the window widens.
+  const first = index + 1
+  const last = Math.min(index + visible, count)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const showing = first === last ? pad(first) : `${pad(first)}–${pad(last)}`
+
   return (
     <section
       className="mt-12"
@@ -88,8 +96,7 @@ export function MacromoleculeSlider() {
 
         <div className="flex items-center gap-3">
           <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">
-            <span className="text-foreground">{String(index + 1).padStart(2, '0')}</span> /{' '}
-            {String(count).padStart(2, '0')}
+            <span className="text-foreground">{showing}</span> / {pad(count)}
           </span>
           <div className="flex items-center gap-1.5">
             <button
