@@ -1,4 +1,5 @@
 import type { Pathway } from '@/lib/pathways'
+import type { QuizQuestion } from '@/lib/pathway-quiz'
 import { clearContent, loadContent, saveContent } from '@/lib/site-content'
 
 // Pathway article edits, stored per category/pathway. These go to Supabase when
@@ -31,6 +32,26 @@ export function clearPathwayEdit(
   pathwaySlug: string,
 ): Promise<void> {
   return clearContent(keyFor(categorySlug, pathwaySlug))
+}
+
+// The self-check quiz, kept as its own document rather than a field on the
+// pathway edit: the article and the questions are edited separately, and one
+// save must not overwrite the other. `path` is the page's own path —
+// `${category}/${pathway}`, or with the child slug appended for a depth-3
+// sub-topic.
+
+const QUIZ_PREFIX = 'metabolism-quiz:'
+
+export function loadPathwayQuiz(path: string): Promise<QuizQuestion[] | null> {
+  return loadContent<QuizQuestion[]>(QUIZ_PREFIX + path)
+}
+
+export function savePathwayQuiz(path: string, questions: QuizQuestion[]): Promise<void> {
+  return saveContent(QUIZ_PREFIX + path, questions)
+}
+
+export function clearPathwayQuiz(path: string): Promise<void> {
+  return clearContent(QUIZ_PREFIX + path)
 }
 
 // The home page hero: its headline, the paragraph under it, and the background

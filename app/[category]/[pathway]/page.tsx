@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { SiteHeader } from '@/components/site-header'
 import { SiteFooter } from '@/components/site-footer'
 import { EditablePathway } from '@/components/editable-pathway'
+import { PathwayQuiz } from '@/components/pathway-quiz'
 import { categories, getPathway } from '@/lib/pathways'
 
 export function generateStaticParams() {
@@ -38,6 +39,7 @@ export default async function PathwayPage({
   const index = category.pathways.findIndex((p) => p.slug === pathway.slug)
   const prev = category.pathways[index - 1]
   const next = category.pathways[index + 1]
+  const quizKey = `${category.slug}/${pathway.slug}`
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -58,6 +60,14 @@ export default async function PathwayPage({
 
         {/* Editable article body */}
         <EditablePathway category={category} pathway={pathway} />
+
+        {/* Self-check quiz, on the same 12-column grid the article uses so it
+            lines up with the body column rather than the full page width. */}
+        <div className="grid grid-cols-1 gap-10 lg:grid-cols-12">
+          <div className="lg:col-span-8">
+            <PathwayQuiz path={quizKey} />
+          </div>
+        </div>
 
         {/* Depth-3 sub-topics */}
         {pathway.children.length > 0 && (

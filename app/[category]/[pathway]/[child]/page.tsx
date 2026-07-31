@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { SiteHeader } from '@/components/site-header'
 import { SiteFooter } from '@/components/site-footer'
 import { EditablePathway } from '@/components/editable-pathway'
+import { PathwayQuiz } from '@/components/pathway-quiz'
 import { categories, getChild } from '@/lib/pathways'
 
 export function generateStaticParams() {
@@ -71,6 +72,14 @@ export default async function ChildPage({
 
         {/* Editable article body */}
         <EditablePathway category={category} pathway={child} />
+
+        {/* Self-check quiz, on the same 12-column grid the article uses so it
+            lines up with the body column rather than the full page width. */}
+        <div className="grid grid-cols-1 gap-10 lg:grid-cols-12">
+          <div className="lg:col-span-8">
+            <PathwayQuiz path={`${category.slug}/${pathway.slug}/${child.slug}`} />
+          </div>
+        </div>
 
         {/* Prev / Next within sibling sub-topics */}
         <nav className="mt-12 grid grid-cols-2 gap-4 border-t border-neutral-200 pt-6">
