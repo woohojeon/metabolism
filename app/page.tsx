@@ -5,6 +5,7 @@ import { SiteFooter } from '@/components/site-footer'
 import { CategoryLabel, ArrowLink } from '@/components/article-bits'
 import { HomeHero } from '@/components/home-hero'
 import { MacromoleculeSlider } from '@/components/macromolecule-slider'
+import { NewspaperDownload } from '@/components/newspaper-download'
 import { Wordmark } from '@/components/wordmark'
 import { instructor } from '@/lib/instructor'
 
@@ -31,6 +32,14 @@ const publishedHero = {
     '탄수화물, 지질, 단백질, 핵산 네 갈래의 분자를 따라 그 네트워크를 훑으며, ' +
     '이들을 만들고 저장하고 분해하는 대사 경로를 다룹니다.',
   image: '/images/chemistry.jpg',
+}
+
+// The newspaper download card's defaults. The administrator (jbnu) can edit the
+// title and replace the PDF in place; components/newspaper-download.tsx loads
+// whatever was saved over these.
+const publishedNewspaper = {
+  title: '수의생화학신문 (2026년)',
+  pdf: '/downloads/vet-biochem-news-2026.pdf',
 }
 
 function InstructorTeaser() {
@@ -82,6 +91,7 @@ export default function HomePage() {
       <SiteHeader />
       <main className="mx-auto max-w-[1280px] px-4 pb-16 lg:px-6">
         <Masthead />
+        <NewspaperDownload published={publishedNewspaper} />
         <HomeHero published={publishedHero} />
         <MacromoleculeSlider />
         <InstructorTeaser />

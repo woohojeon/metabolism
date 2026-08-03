@@ -87,6 +87,30 @@ export function clearHomeHero(): Promise<void> {
   return clearContent(HERO_KEY)
 }
 
+// The home page's newspaper download card: its title and the PDF it hands out.
+// One document, shared the same way as everything else. Only the administrator
+// (jbnu) edits it; every visitor downloads whatever was last saved.
+
+export type HomeNewspaper = {
+  title: string
+  /** A path under /public, or a URL from uploadFile once the PDF is replaced. */
+  pdf: string
+}
+
+const NEWSPAPER_KEY = 'metabolism-home-newspaper'
+
+export function loadHomeNewspaper(): Promise<HomeNewspaper | null> {
+  return loadContent<HomeNewspaper>(NEWSPAPER_KEY)
+}
+
+export function saveHomeNewspaper(data: HomeNewspaper): Promise<void> {
+  return saveContent(NEWSPAPER_KEY, data)
+}
+
+export function clearHomeNewspaper(): Promise<void> {
+  return clearContent(NEWSPAPER_KEY)
+}
+
 // Category-level figure gallery edits (add/remove images), shared the same way.
 // The entries are URLs from /api/upload rather than data: URLs once Supabase is
 // configured, which is also what keeps this document small.
