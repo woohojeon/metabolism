@@ -106,7 +106,11 @@ export function NewspaperDownload({ published }: { published: HomeNewspaper }) {
   const downloadName = `${shown.title.trim() || 'newspaper'}.pdf`
 
   return (
-    <section className="relative mt-8 border-l-4 border-science-red bg-panel px-6 py-8 sm:px-10">
+    <section
+      className={`relative mt-8 border-l-4 border-science-red bg-panel px-6 py-8 sm:px-10 ${
+        isAdmin ? 'pt-14 sm:pt-14' : ''
+      }`}
+    >
       <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h2 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-science-red">
@@ -150,9 +154,10 @@ export function NewspaperDownload({ published }: { published: HomeNewspaper }) {
         </div>
       </div>
 
-      {/* Administrator controls, styled like every other in-place editor. */}
+      {/* Administrator controls, tucked into the top-right corner like the
+          hero's, styled like every other in-place editor. */}
       {isAdmin && (
-        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-neutral-200 pt-4">
+        <div className="absolute right-3 top-3 flex flex-wrap items-center justify-end gap-2">
           {editing ? (
             <>
               <input
