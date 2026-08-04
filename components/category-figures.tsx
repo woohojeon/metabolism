@@ -81,7 +81,12 @@ export function CategoryFigures({
         )}
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Thumbnails at a fixed height rather than each figure's own. Left to
+          grow, one tall diagram would take more of the page than the pathways
+          it illustrates. `contain` keeps every figure whole — nothing is
+          cropped out of a thumbnail, it is only shown small — and a tap opens
+          it full size. */}
+      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         {figures.map((src, i) => (
           <figure
             key={i}
@@ -94,7 +99,7 @@ export function CategoryFigures({
               src={src}
               alt={`${categoryName} figure ${i + 1}`}
               loading="lazy"
-              className="h-auto w-full cursor-zoom-in"
+              className="h-32 w-full cursor-zoom-in object-contain p-2 transition-transform duration-300 group-hover:scale-[1.04] sm:h-40"
               onClick={() => setLightbox(src)}
             />
             {editing && (

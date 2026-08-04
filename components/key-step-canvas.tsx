@@ -13,6 +13,7 @@ import {
   Superscript,
   Type,
   Undo2,
+  X,
 } from 'lucide-react'
 import { sanitizeRich } from '@/lib/rich-text'
 import type {
@@ -44,7 +45,7 @@ const FONT_MAX = 40
 
 // The board grows to hold whatever has been placed on it — no manual sizing.
 // Text is measured generously so a box near the bottom never gets clipped.
-function boardHeight(canvas: Canvas) {
+export function boardHeight(canvas: Canvas) {
   const bottoms = canvas.items.map((it) =>
     it.kind === 'text' ? it.y + (it.size ?? FONT_PX) * 1.6 + 15 : Math.max(it.y1, it.y2) + 20,
   )
@@ -62,10 +63,18 @@ export function KeyStepCanvas({
   canvas,
   editing,
   onChange,
+  boardWidth,
 }: {
   canvas: Canvas
   editing: boolean
   onChange: (canvas: Canvas) => void
+  /**
+   * An exact width to draw the board at, in px. Without it the board fills the
+   * column it is in and holds a floor so a phone scrolls across it rather than
+   * shrinking it past reading size. The zoom view sets it to the size it has
+   * worked out for the window.
+   */
+  boardWidth?: number
 }) {
   const [selected, setSelected] = useState<string | null>(null)
   // The box whose text is being typed into (entered by double-click, as in PPT).
@@ -74,6 +83,28 @@ export function KeyStepCanvas({
   const [guideX, setGuideX] = useState<number | null>(null)
   const [guideY, setGuideY] = useState<number | null>(null)
   const scaleRef = useRef(1)
+  const boardRef = useRef<HTMLDivElement>(null)
+
+  // Draw the fixed coordinate space at whatever width it has been given, and
+  // keep it there as the column or the window changes. The observer is torn
+  // down on unmount — the zoom view mounts a second board and closing it must
+  // not leave one behind.
+  useEffect(() => {
+    const el = boardRef.current
+    const parent = el?.parentElement
+    if (!el || !parent) return
+
+    const fit = () => {
+      const s = parent.clientWidth / CANVAS_WIDTH
+      scaleRef.current = s
+      el.style.transform = `scale(${s})`
+    }
+    fit()
+
+    const ro = new ResizeObserver(fit)
+    ro.observe(parent)
+    return () => ro.disconnect()
+  }, [])
 
   // Undo/redo. Consecutive edits of the same kind on the same item (typing a
   // word, dragging a box) collapse into one step, so Ctrl+Z undoes an action
@@ -309,12 +340,16 @@ export function KeyStepCanvas({
         />
       )}
 
+      {/* The board is scaled to whatever width it is given. On a phone that
+          would be a scale of about 0.4, putting the labels at 6px — so it is
+          held to a floor and the narrow screen scrolls sideways across it
+          instead of shrinking it past reading size. */}
       <div
-        className={`w-full overflow-hidden rounded border bg-white ${editing ? 'border-neutral-300' : 'border-neutral-200'}`}
+        className={`w-full overflow-x-auto overscroll-x-contain rounded border bg-white ${editing ? 'border-neutral-300' : 'border-neutral-200'}`}
       >
         <div
-          className="relative w-full"
-          style={{ aspectRatio: `${CANVAS_WIDTH} / ${height}` }}
+          className={`relative ${boardWidth ? '' : 'w-full min-w-[620px]'}`}
+          style={{ aspectRatio: `${CANVAS_WIDTH} / ${height}`, width: boardWidth }}
           onPointerDown={() => {
             setSelected(null)
             setTyping(null)
@@ -322,20 +357,9 @@ export function KeyStepCanvas({
         >
           {/* Fixed coordinate space, scaled to the rendered width. */}
           <div
+            ref={boardRef}
             className="absolute left-0 top-0 origin-top-left"
             style={{ width: CANVAS_WIDTH, height }}
-            ref={(el) => {
-              const parent = el?.parentElement
-              if (!el || !parent) return
-              const fit = () => {
-                const s = parent.clientWidth / CANVAS_WIDTH
-                scaleRef.current = s
-                el.style.transform = `scale(${s})`
-              }
-              fit()
-              const ro = new ResizeObserver(fit)
-              ro.observe(parent)
-            }}
           >
             {/* Arrows sit under the text boxes */}
             <svg
@@ -475,6 +499,88 @@ export function KeyStepCanvas({
           Ctrl+Shift+Z 다시 실행.
         </p>
       )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+/**
+ * The diagram at full size, over the page, closed by the backdrop or Escape —
+ * the same gesture the figure galleries answer to.
+ *
+ * Nothing is converted to an image on the way. The board is already drawn into
+ * a fixed coordinate space and scaled to whatever width it is handed, so
+ * enlarging it is only a matter of handing it a bigger one: the labels stay
+ * live text and the arrows stay SVG, sharp at any size.
+ */
+export function KeyStepZoom({ canvas, onClose }: { canvas: Canvas; onClose: () => void }) {
+  const height = boardHeight(canvas)
+  const [width, setWidth] = useState(CANVAS_WIDTH)
+
+  useEffect(() => {
+    const measure = () => {
+      // As large as fits within both the width and the height of the window —
+      // but never below the size the diagram was drawn at. On a phone, fitting
+      // 900px into a 375px screen would put the labels at 6px, which is not
+      // enlarging anything; there the board keeps its own size and the screen
+      // pans across it.
+      const room = Math.min(
+        window.innerWidth - 32,
+        ((window.innerHeight - 96) * CANVAS_WIDTH) / height,
+      )
+      setWidth(Math.round(Math.max(CANVAS_WIDTH, room)))
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    window.addEventListener('orientationchange', measure)
+    return () => {
+      window.removeEventListener('resize', measure)
+      window.removeEventListener('orientationchange', measure)
+    }
+  }, [height])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = ''
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [onClose])
+
+  return (
+    <div
+      className="fixed inset-0 z-50 overflow-auto overscroll-contain bg-black/85 p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Key step diagram"
+    >
+      {/* Fixed, not absolute: the overlay scrolls when the board is wider than
+          the screen, and the way out must not scroll away with it. */}
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="닫기"
+        className="fixed right-4 top-4 z-10 inline-flex items-center gap-1 rounded bg-white/90 px-3 py-1.5 text-[12px] font-bold text-foreground transition-colors hover:bg-white"
+      >
+        <X className="size-[15px]" />
+        닫기
+      </button>
+
+      <div className="flex min-h-full items-center justify-center">
+        <div style={{ width }} onClick={(e) => e.stopPropagation()}>
+          <KeyStepCanvas
+            canvas={canvas}
+            editing={false}
+            onChange={() => {}}
+            boardWidth={width}
+          />
+        </div>
+      </div>
     </div>
   )
 }

@@ -6,7 +6,12 @@ import { Bold, Pencil, Subscript, Superscript, Underline, Upload, X } from 'luci
 import { useEffect, useRef, useState } from 'react'
 import { CategoryLabel } from '@/components/article-bits'
 import { SlideViewer } from '@/components/slide-download'
-import { KeyStepCanvas, emptyCanvas, hasCanvas } from '@/components/key-step-canvas'
+import {
+  KeyStepCanvas,
+  KeyStepZoom,
+  emptyCanvas,
+  hasCanvas,
+} from '@/components/key-step-canvas'
 import { sanitizeRich } from '@/lib/rich-text'
 import type { Category, Pathway, Video } from '@/lib/pathways'
 import { clearPathwayEdit, loadPathwayEdit, savePathwayEdit } from '@/lib/edits'
@@ -43,6 +48,7 @@ export function EditablePathway({
   const [editing, setEditing] = useState<Section | null>(null)
   const [hasEdits, setHasEdits] = useState(false)
   const [lightbox, setLightbox] = useState<string | null>(null)
+  const [zoomOpen, setZoomOpen] = useState(false)
   const { isAdmin } = useAuth()
 
   useEffect(() => {
@@ -263,18 +269,44 @@ export function EditablePathway({
 
               {/* A diagram laid out on the page wins over the imported image. */}
               {keystep.keyStepCanvas ? (
-                <KeyStepCanvas
-                  canvas={keystep.keyStepCanvas}
-                  editing={editing === 'keystep'}
-                  onChange={(canvas) => setField('keyStepCanvas', canvas)}
-                />
+                editing === 'keystep' ? (
+                  <KeyStepCanvas
+                    canvas={keystep.keyStepCanvas}
+                    editing
+                    onChange={(canvas) => setField('keyStepCanvas', canvas)}
+                  />
+                ) : (
+                  // Tap to open it full size, as the figures do. Only outside
+                  // edit mode: there a click on the board picks up a text box
+                  // to drag, and the two gestures would be the same one.
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    aria-label="다이어그램 확대"
+                    onClick={() => setZoomOpen(true)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setZoomOpen(true)
+                      }
+                    }}
+                    className="cursor-zoom-in"
+                  >
+                    <KeyStepCanvas
+                      canvas={keystep.keyStepCanvas}
+                      editing={false}
+                      onChange={() => {}}
+                    />
+                  </div>
+                )
               ) : keystep.keyStepSvg ? (
                 <div className="mt-4 overflow-x-auto rounded border border-neutral-200 bg-white p-4">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={keystep.keyStepSvg}
                     alt={`${keystep.name} key-step reaction diagram`}
-                    className="h-auto w-full min-w-[640px]"
+                    className="h-auto w-full min-w-[640px] cursor-zoom-in"
+                    onClick={() => setLightbox(keystep.keyStepSvg!)}
                   />
                 </div>
               ) : (
@@ -325,7 +357,10 @@ export function EditablePathway({
           {hasFigures && (
             <section className="mt-10">
               <SectionHeading title="Figures" {...sectionProps('figures')} />
-              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {/* Thumbnails at a fixed height rather than each figure's own, so
+                  a tall diagram cannot outweigh the article it belongs to.
+                  `contain` keeps every figure whole; a tap opens it full size. */}
+              <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
                 {(figures.figures ?? []).map((src, i) => (
                   <figure
                     key={i}
@@ -337,7 +372,7 @@ export function EditablePathway({
                     <img
                       src={src}
                       alt={`${data.name} figure ${i + 1}`}
-                      className="h-auto w-full cursor-zoom-in"
+                      className="h-32 w-full cursor-zoom-in object-contain p-2 transition-transform duration-300 group-hover:scale-[1.04] sm:h-40"
                       onClick={() => setLightbox(src)}
                     />
                     {editing === 'figures' && (
@@ -522,6 +557,9 @@ export function EditablePathway({
         </aside>
       </div>
 
+      {zoomOpen && data.keyStepCanvas && (
+        <KeyStepZoom canvas={data.keyStepCanvas} onClose={() => setZoomOpen(false)} />
+      )}
       {lightbox && <Lightbox src={lightbox} onClose={() => setLightbox(null)} />}
     </>
   )
