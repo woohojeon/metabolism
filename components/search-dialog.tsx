@@ -66,6 +66,17 @@ export function SearchDialog({
     setActive(0)
   }, [query])
 
+  // Hold the page still behind the dialog — on a phone it covers the screen,
+  // and a scroll that misses the results list would move the page instead.
+  useEffect(() => {
+    if (!open) return
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previous
+    }
+  }, [open])
+
   const go = (href: string) => {
     onClose()
     router.push(href)
@@ -88,7 +99,9 @@ export function SearchDialog({
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center px-4 pt-[12vh]">
+    // `dvh`, and less of it on a phone: the on-screen keyboard takes the lower
+    // half of the window as soon as the field is focused.
+    <div className="fixed inset-0 z-[60] flex items-start justify-center px-4 pt-[6dvh] sm:pt-[12dvh]">
       <div
         aria-hidden
         onClick={onClose}
@@ -121,7 +134,7 @@ export function SearchDialog({
         </div>
 
         {query.trim() && (
-          <ul className="max-h-[50vh] overflow-y-auto py-2">
+          <ul className="max-h-[50dvh] overflow-y-auto overscroll-contain py-2">
             {results.length === 0 && (
               <li className="px-4 py-6 text-center text-[13px] text-neutral-500">
                 No results for &ldquo;{query}&rdquo;

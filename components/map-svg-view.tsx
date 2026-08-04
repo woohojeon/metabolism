@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 // LibreOffice 가 변환한 벡터 SVG(슬라이드 20장 + 슬라이드쇼 스크립트)에서
 // 스크립트를 제거하고, 선택한 슬라이드(g.Slide#idN)만 CSS 로 표시한다.
@@ -42,12 +42,37 @@ const SLIDES: { id: string; name: string; cat: Cat }[] = [
   { id: 'id20', name: 'Pyrimidine Nucleotides', cat: 'nucleic' },
 ]
 
+// The width the slide is drawn at.
+const SLIDE_WIDTH = 1000
+
 export function MapSvgView() {
   const [svg, setSvg] = useState('')
   const [sel, setSel] = useState('id1')
-  const [zoom, setZoom] = useState(1)
+  // A phone is a third of a slide wide, so opening at 100% would drop the
+  // reader into the top-left corner of a map they would then have to pan
+  // blind. `null` means "as wide as it will go", which is where every screen
+  // narrower than the slide starts and what the percentage button returns to.
+  const [zoom, setZoom] = useState<number | null>(null)
+  const [fit, setFit] = useState(1)
+  const viewRef = useRef<HTMLDivElement>(null)
   const ZMIN = 0.3, ZMAX = 5
-  const bump = (d: number) => setZoom((z) => Math.round(Math.min(ZMAX, Math.max(ZMIN, z + d)) * 100) / 100)
+  const scale = zoom ?? fit
+  const bump = (d: number) =>
+    setZoom(Math.round(Math.min(ZMAX, Math.max(ZMIN, scale + d)) * 100) / 100)
+
+  // Track the width the slide has to sit in, so "fit" stays true through a
+  // rotation or a split-screen resize. Rounded down, so fitting never itself
+  // brings on the sideways scrollbar it exists to avoid.
+  useEffect(() => {
+    const el = viewRef.current
+    if (!el) return
+    const measure = () =>
+      setFit(Math.min(1, Math.floor((el.clientWidth / SLIDE_WIDTH) * 100) / 100))
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   useEffect(() => {
     fetch('/metabolic-map.svg')
@@ -71,8 +96,44 @@ export function MapSvgView() {
 
   return (
     <div className="flex flex-col gap-4 lg:flex-row">
+      {/* Twenty slide titles ahead of the map would push the map itself off a
+          phone screen entirely, so below `lg` the same choice is a one-line
+          picker sitting directly above the slide it changes. */}
+      <div className="lg:hidden">
+        <label
+          htmlFor="map-slide"
+          className="text-[12px] font-bold uppercase tracking-[0.15em] text-neutral-500"
+        >
+          Slide
+        </label>
+        <select
+          id="map-slide"
+          value={sel}
+          onChange={(e) => setSel(e.target.value)}
+          className="mt-1.5 h-11 w-full rounded border border-neutral-300 bg-background px-3 text-[14px] font-semibold text-foreground outline-none focus:border-foreground"
+        >
+          {groups.map((g) =>
+            g.cat === 'overview' ? (
+              g.items.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))
+            ) : (
+              <optgroup key={g.cat} label={g.label}>
+                {g.items.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </optgroup>
+            ),
+          )}
+        </select>
+      </div>
+
       {/* Sidebar list */}
-      <aside className="lg:w-[280px] lg:shrink-0">
+      <aside className="hidden lg:block lg:w-[280px] lg:shrink-0">
         <div className="border-b-2 border-foreground pb-2">
           <h2 className="text-[12px] font-bold uppercase tracking-[0.15em] text-neutral-500">Slides</h2>
         </div>
@@ -111,25 +172,32 @@ export function MapSvgView() {
       {/* Slide view */}
       <div className="min-w-0 flex-1">
         <div className="mb-2 flex items-center justify-between">
-          <p className="text-[12px] font-semibold" style={{ color: CAT[current.cat].color }}>{current.name}</p>
-          <div className="flex items-center gap-1">
-            <button type="button" onClick={() => bump(-0.2)} disabled={zoom <= ZMIN} aria-label="Zoom out"
-              className="flex size-7 items-center justify-center rounded border border-neutral-300 text-[16px] font-bold text-neutral-600 transition-colors hover:border-foreground disabled:opacity-30">−</button>
-            <button type="button" onClick={() => setZoom(1)}
-              className="min-w-[3.2rem] rounded border border-neutral-300 px-2 py-1 text-[11px] font-bold tabular-nums text-neutral-600 transition-colors hover:border-foreground">{Math.round(zoom * 100)}%</button>
-            <button type="button" onClick={() => bump(0.2)} disabled={zoom >= ZMAX} aria-label="Zoom in"
-              className="flex size-7 items-center justify-center rounded border border-neutral-300 text-[16px] font-bold text-neutral-600 transition-colors hover:border-foreground disabled:opacity-30">+</button>
+          <p className="min-w-0 truncate text-[12px] font-semibold" style={{ color: CAT[current.cat].color }}>{current.name}</p>
+          <div className="flex shrink-0 items-center gap-1">
+            <button type="button" onClick={() => bump(-0.2)} disabled={scale <= ZMIN} aria-label="Zoom out"
+              className="flex size-9 items-center justify-center rounded border border-neutral-300 text-[16px] font-bold text-neutral-600 transition-colors hover:border-foreground disabled:opacity-30 sm:size-7">−</button>
+            <button type="button" onClick={() => setZoom(null)} title="화면 너비에 맞추기"
+              className="h-9 min-w-[3.4rem] rounded border border-neutral-300 px-2 text-[11px] font-bold tabular-nums text-neutral-600 transition-colors hover:border-foreground sm:h-7">{Math.round(scale * 100)}%</button>
+            <button type="button" onClick={() => bump(0.2)} disabled={scale >= ZMAX} aria-label="Zoom in"
+              className="flex size-9 items-center justify-center rounded border border-neutral-300 text-[16px] font-bold text-neutral-600 transition-colors hover:border-foreground disabled:opacity-30 sm:size-7">+</button>
           </div>
         </div>
 
-        <div className="overflow-auto rounded border border-neutral-200 bg-white" style={{ maxHeight: 'calc(100vh - 180px)' }}>
+        {/* `dvh`, not `vh`: on a phone `vh` is measured against the tallest the
+            window ever gets, so the bottom of the map would sit under the
+            browser's own toolbar. */}
+        <div
+          ref={viewRef}
+          className="overflow-auto overscroll-contain rounded border border-neutral-200 bg-white"
+          style={{ maxHeight: 'calc(100dvh - 200px)', minHeight: '18rem' }}
+        >
           {/* 선택 슬라이드만 표시 */}
           {/* 전체 지도(id1)를 흐리게 깔고, 선택 슬라이드를 위에 또렷하게 겹쳐 강조 */}
           <style>{`.mapsvg svg{width:100%;height:auto;display:block}.mapsvg g.Slide{visibility:hidden}.mapsvg g#id1{visibility:visible;opacity:0.16}.mapsvg g#${sel}{visibility:visible;opacity:1}`}</style>
           {svg ? (
-            <div className="mapsvg" style={{ width: `${1000 * zoom}px`, maxWidth: 'none' }} dangerouslySetInnerHTML={{ __html: svg }} />
+            <div className="mapsvg" style={{ width: `${SLIDE_WIDTH * scale}px`, maxWidth: 'none' }} dangerouslySetInnerHTML={{ __html: svg }} />
           ) : (
-            <div className="flex h-[50vh] items-center justify-center text-[13px] text-neutral-400">불러오는 중…</div>
+            <div className="flex h-[50dvh] items-center justify-center text-[13px] text-neutral-400">불러오는 중…</div>
           )}
         </div>
       </div>

@@ -107,8 +107,10 @@ export function NewspaperDownload({ published }: { published: HomeNewspaper }) {
 
   return (
     <section
-      className={`relative mt-8 border-l-4 border-science-red bg-panel px-6 py-8 sm:px-10 ${
-        isAdmin ? 'pt-14 sm:pt-14' : ''
+      // The editor's controls wrap onto a second row on a phone, so the space
+      // held clear for them is taller there than on a wide screen.
+      className={`relative mt-8 border-l-4 border-science-red bg-panel px-5 py-8 sm:px-10 ${
+        isAdmin ? 'pt-24 sm:pt-14' : ''
       }`}
     >
       <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
@@ -131,12 +133,14 @@ export function NewspaperDownload({ published }: { published: HomeNewspaper }) {
           )}
         </div>
 
+        {/* Full width where the card is a single column, so the tap target is
+            the whole row rather than a small button at the left margin. */}
         <div className="flex shrink-0 items-center gap-2">
           {user ? (
             <a
               href={shown.pdf}
               download={downloadName}
-              className="inline-flex items-center justify-center gap-2 rounded bg-science-red px-5 py-2.5 text-[12px] font-bold text-white transition-opacity hover:opacity-90"
+              className="inline-flex w-full items-center justify-center gap-2 rounded bg-science-red px-5 py-3 text-[13px] font-bold text-white transition-opacity hover:opacity-90 sm:w-auto sm:py-2.5 sm:text-[12px]"
             >
               <Download className="size-[15px]" />
               PDF 내려받기
@@ -145,7 +149,7 @@ export function NewspaperDownload({ published }: { published: HomeNewspaper }) {
             <button
               type="button"
               onClick={() => setLoginOpen(true)}
-              className="inline-flex items-center justify-center gap-2 rounded border border-science-red px-5 py-2.5 text-[12px] font-bold text-science-red transition-colors hover:bg-science-red hover:text-white"
+              className="inline-flex w-full items-center justify-center gap-2 rounded border border-science-red px-5 py-3 text-[13px] font-bold text-science-red transition-colors hover:bg-science-red hover:text-white sm:w-auto sm:py-2.5 sm:text-[12px]"
             >
               <Lock className="size-[14px]" />
               로그인 후 내려받기
@@ -157,7 +161,7 @@ export function NewspaperDownload({ published }: { published: HomeNewspaper }) {
       {/* Administrator controls, tucked into the top-right corner like the
           hero's, styled like every other in-place editor. */}
       {isAdmin && (
-        <div className="absolute right-3 top-3 flex flex-wrap items-center justify-end gap-2">
+        <div className="absolute left-3 right-3 top-3 flex flex-wrap items-center justify-end gap-2">
           {editing ? (
             <>
               <input

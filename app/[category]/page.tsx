@@ -39,7 +39,10 @@ export default async function CategoryPage({
       <main>
         {/* Hero */}
         <section className="relative">
-          <div className="relative aspect-[21/9] w-full overflow-hidden bg-ink">
+          {/* 21:9 leaves about 160px of height on a phone — less than the
+              title and tagline laid over it need. The crop stays wide only
+              where the width is there to pay for it. */}
+          <div className="relative aspect-[4/3] w-full overflow-hidden bg-ink sm:aspect-[21/9]">
             <Image
               src={category.image}
               alt={category.name}
@@ -50,8 +53,8 @@ export default async function CategoryPage({
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20" />
             <div className="absolute inset-x-0 bottom-0">
-              <div className="mx-auto max-w-[1280px] px-4 pb-8 lg:px-6">
-                <h1 className="mt-1 text-4xl font-extrabold leading-tight text-white sm:text-6xl">
+              <div className="mx-auto max-w-[1280px] px-4 pb-6 sm:pb-8 lg:px-6">
+                <h1 className="mt-1 text-3xl font-extrabold leading-tight text-white sm:text-6xl">
                   {category.name}
                 </h1>
                 <p className="mt-2 max-w-2xl text-[15px] leading-snug text-white/85">

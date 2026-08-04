@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Menu, X, Search, User, LogOut, Users } from 'lucide-react'
 import { Wordmark } from './wordmark'
@@ -14,6 +14,18 @@ export function SiteHeader() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [loginOpen, setLoginOpen] = useState(false)
   const { user, isAdmin, logout } = useAuth()
+
+  // Hold the page still behind the open drawer. On a phone the drawer covers
+  // most of the screen, and a scroll that lands on the backdrop would otherwise
+  // move the article underneath it instead of the menu.
+  useEffect(() => {
+    if (!menuOpen) return
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previous
+    }
+  }, [menuOpen])
 
   return (
     <header className="sticky top-0 z-50 bg-ink text-white">
@@ -51,22 +63,26 @@ export function SiteHeader() {
           </span>
         </Link>
 
-        {/* Center: wordmark */}
+        {/* Center: wordmark. It is absolutely positioned, so it cannot push the
+            brand and the utilities apart — below `lg` there is no room between
+            them and it would simply sit on top of both. Every page carries the
+            title elsewhere (the masthead, the breadcrumb), so it is dropped
+            rather than shrunk. */}
         <Link
           href="/"
           aria-label="Veterinary Biochemistry home"
-          className="absolute left-1/2 -translate-x-1/2"
+          className="absolute left-1/2 hidden -translate-x-1/2 lg:block"
         >
-          <Wordmark className="whitespace-nowrap text-[15px] text-white sm:text-[20px]" />
+          <Wordmark className="whitespace-nowrap text-[20px] text-white" />
         </Link>
 
         {/* Right: utilities + hamburger */}
-        <div className="flex items-center gap-3 sm:gap-4">
+        <div className="flex items-center gap-1 sm:gap-3 lg:gap-4">
           <button
             type="button"
             aria-label="Search"
             onClick={() => setSearchOpen(true)}
-            className="flex size-9 items-center justify-center rounded-full text-white/90 transition-colors hover:bg-white/10 hover:text-white"
+            className="flex size-11 items-center justify-center rounded-full text-white/90 transition-colors hover:bg-white/10 hover:text-white sm:size-9"
           >
             <Search className="size-[18px]" />
           </button>
@@ -84,7 +100,7 @@ export function SiteHeader() {
             <button
               type="button"
               onClick={logout}
-              className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white/90 transition-colors hover:bg-white/10 hover:text-white"
+              className="flex h-11 items-center gap-1.5 rounded-full px-2.5 text-[10px] font-bold uppercase tracking-wider text-white/90 transition-colors hover:bg-white/10 hover:text-white sm:h-auto sm:py-1.5"
             >
               <span className="hidden sm:inline">Logout</span>
               <LogOut className="size-[16px]" />
@@ -93,7 +109,7 @@ export function SiteHeader() {
             <button
               type="button"
               onClick={() => setLoginOpen(true)}
-              className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white/90 transition-colors hover:bg-white/10 hover:text-white"
+              className="flex h-11 items-center gap-1.5 rounded-full px-2.5 text-[10px] font-bold uppercase tracking-wider text-white/90 transition-colors hover:bg-white/10 hover:text-white sm:h-auto sm:py-1.5"
             >
               <User className="size-[16px]" />
               <span className="hidden sm:inline">Login</span>
@@ -112,7 +128,7 @@ export function SiteHeader() {
             aria-label={menuOpen ? 'Close structure menu' : 'Open structure menu'}
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((v) => !v)}
-            className="flex size-9 items-center justify-center rounded-full text-white/90 transition-colors hover:bg-white/10 hover:text-white"
+            className="flex size-11 items-center justify-center rounded-full text-white/90 transition-colors hover:bg-white/10 hover:text-white sm:size-9"
           >
             {menuOpen ? <X className="size-6" /> : <Menu className="size-6" />}
           </button>
@@ -149,7 +165,7 @@ export function SiteHeader() {
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-5 py-6">
+        <nav className="flex-1 overflow-y-auto overscroll-contain px-5 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
           <ul className="flex flex-col gap-7">
             {categories.map((cat) => (
               <li key={cat.slug}>
@@ -168,7 +184,7 @@ export function SiteHeader() {
                       <Link
                         href={`/${cat.slug}/${pw.slug}`}
                         onClick={() => setMenuOpen(false)}
-                        className="block py-1.5 text-[13px] leading-snug text-neutral-600 transition-colors hover:text-science-red"
+                        className="block py-2.5 text-[13px] leading-snug text-neutral-600 transition-colors hover:text-science-red sm:py-1.5"
                       >
                         {pw.name}
                       </Link>
@@ -179,7 +195,7 @@ export function SiteHeader() {
                               <Link
                                 href={`/${cat.slug}/${pw.slug}/${ch.slug}`}
                                 onClick={() => setMenuOpen(false)}
-                                className="block py-1 text-[12px] leading-snug text-neutral-500 transition-colors hover:text-science-red"
+                                className="block py-2 text-[12px] leading-snug text-neutral-500 transition-colors hover:text-science-red sm:py-1"
                               >
                                 {ch.name}
                               </Link>

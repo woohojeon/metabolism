@@ -80,7 +80,11 @@ export function HomeHero({ published }: { published: HomeHero }) {
   const shown = editing ? draft : data
 
   const banner = (
-    <div className="relative aspect-[16/9] w-full overflow-hidden bg-ink">
+    // A 16:9 crop is barely 210px tall on a phone, and the headline and the
+    // standfirst together need more than that — laid over it they would be
+    // clipped off the top. Below `sm` the caption is a block the banner grows
+    // to fit instead, with the photograph filling whatever height that comes to.
+    <div className="relative w-full overflow-hidden bg-ink sm:aspect-[16/9]">
       {/* Plain <img>: the picture can be replaced with an upload, which is a
           remote or data: URL. Images are unoptimized site-wide anyway. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -89,7 +93,7 @@ export function HomeHero({ published }: { published: HomeHero }) {
         alt="대사 지도"
         className="absolute inset-0 size-full object-cover opacity-95 transition-transform duration-500 group-hover:scale-[1.02]"
       />
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-6 pt-24 sm:p-10">
+      <div className="relative bg-gradient-to-t from-black/95 via-black/60 to-transparent p-6 pt-40 sm:absolute sm:inset-x-0 sm:bottom-0 sm:p-10 sm:pt-24">
         <div className="flex items-center gap-2">
           <CategoryLabel>Feature</CategoryLabel>
           <span className="text-white/40">|</span>
@@ -98,7 +102,10 @@ export function HomeHero({ published }: { published: HomeHero }) {
         {/* `pre` rather than `nowrap`: the type scales with the viewport
             instead of wrapping on its own, but a line break typed by hand is
             kept. Once a width is chosen the headline wraps within it —
-            choosing a width is choosing where the lines break. */}
+            choosing a width is choosing where the lines break.
+            Below `sm` that trade is off: holding one line would shrink a
+            Korean headline to about 12px, so the phone wraps it and keeps it
+            readable instead. */}
         <InlineText
           as="h1"
           editing={editing}
@@ -107,8 +114,8 @@ export function HomeHero({ published }: { published: HomeHero }) {
           size={shown.titleBox}
           onResize={(box) => setDraft((d) => ({ ...d, titleBox: box }))}
           placeholder="제목"
-          className={`mt-2 text-[clamp(0.75rem,3.1vw,2.5rem)] font-extrabold leading-tight text-white ${
-            shown.titleBox?.width ? 'whitespace-pre-wrap' : 'whitespace-pre'
+          className={`mt-2 whitespace-pre-wrap text-[clamp(1.25rem,5vw,1.75rem)] font-extrabold leading-tight text-white sm:text-[clamp(0.75rem,3.1vw,2.5rem)] ${
+            shown.titleBox?.width ? 'sm:whitespace-pre-wrap' : 'sm:whitespace-pre'
           }`}
         />
         <InlineText
@@ -137,9 +144,12 @@ export function HomeHero({ published }: { published: HomeHero }) {
         </Link>
       )}
 
-      {/* Controls sit outside the link so they never navigate to the map. */}
+      {/* Controls sit outside the link so they never navigate to the map.
+          They are bounded on the left as well as the right: with only a right
+          edge the row sizes to its content and, once there are four buttons,
+          runs off the left of a phone screen instead of wrapping. */}
       {isAdmin && (
-        <div className="absolute right-3 top-3 flex flex-wrap items-center justify-end gap-2">
+        <div className="absolute left-3 right-3 top-3 flex flex-wrap items-center justify-end gap-2">
           {editing ? (
             <>
               <ImagePicker

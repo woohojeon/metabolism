@@ -38,9 +38,29 @@ function useVisibleCount() {
   return visible
 }
 
+// Whether the reader has asked for less movement, in the OS settings.
+function useReducedMotion() {
+  const [reduced, setReduced] = useState(false)
+
+  useEffect(() => {
+    const mql = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const update = () => setReduced(mql.matches)
+    update()
+    mql.addEventListener('change', update)
+    return () => mql.removeEventListener('change', update)
+  }, [])
+
+  return reduced
+}
+
 export function MacromoleculeSlider() {
   const [index, setIndex] = useState(0)
   const [paused, setPaused] = useState(false)
+  // On a touch screen there is no hover to pause on, and a strip that keeps
+  // moving while a reader is part-way down one card's pathway list is a strip
+  // that loses their place. The first deliberate touch hands over control.
+  const [stopped, setStopped] = useState(false)
+  const reducedMotion = useReducedMotion()
   const visible = useVisibleCount()
   const count = categories.length
   const maxIndex = Math.max(0, count - visible)
@@ -51,16 +71,18 @@ export function MacromoleculeSlider() {
   }, [maxIndex])
 
   // Auto-advance one slide at a time; loop back to the start at the end.
-  // Pauses on hover/focus and when there is nothing to scroll.
+  // Pauses on hover, gives up for good once the reader takes over, and never
+  // starts where motion is unwelcome or there is nothing to scroll.
   useEffect(() => {
-    if (paused || maxIndex === 0) return
+    if (paused || stopped || reducedMotion || maxIndex === 0) return
     const id = setInterval(() => {
       setIndex((prev) => (prev >= maxIndex ? 0 : prev + 1))
     }, 3000)
     return () => clearInterval(id)
-  }, [paused, maxIndex])
+  }, [paused, stopped, reducedMotion, maxIndex])
 
   const go = (dir: number) => {
+    setStopped(true)
     setIndex((prev) => Math.min(Math.max(prev + dir, 0), maxIndex))
   }
 
@@ -82,6 +104,7 @@ export function MacromoleculeSlider() {
       className="mt-12"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
+      onTouchStart={() => setStopped(true)}
     >
       <div className="flex flex-wrap items-end justify-between gap-4 border-t-2 border-foreground pt-3">
         <div>
@@ -104,7 +127,7 @@ export function MacromoleculeSlider() {
               onClick={() => go(-1)}
               disabled={!canPrev}
               aria-label="Previous macromolecules"
-              className="flex size-9 items-center justify-center border border-neutral-300 text-foreground transition-colors hover:border-foreground hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-neutral-300 disabled:hover:bg-transparent disabled:hover:text-foreground"
+              className="flex size-11 items-center justify-center border border-neutral-300 text-foreground transition-colors hover:border-foreground hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-neutral-300 disabled:hover:bg-transparent disabled:hover:text-foreground sm:size-9"
             >
               <ChevronLeft className="size-4" />
             </button>
@@ -113,7 +136,7 @@ export function MacromoleculeSlider() {
               onClick={() => go(1)}
               disabled={!canNext}
               aria-label="Next macromolecules"
-              className="flex size-9 items-center justify-center border border-neutral-300 text-foreground transition-colors hover:border-foreground hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-neutral-300 disabled:hover:bg-transparent disabled:hover:text-foreground"
+              className="flex size-11 items-center justify-center border border-neutral-300 text-foreground transition-colors hover:border-foreground hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-neutral-300 disabled:hover:bg-transparent disabled:hover:text-foreground sm:size-9"
             >
               <ChevronRight className="size-4" />
             </button>
@@ -123,7 +146,7 @@ export function MacromoleculeSlider() {
 
       <div className="mt-6 overflow-hidden px-3">
         <div
-          className="-mx-3 flex transition-transform duration-500 ease-out"
+          className="-mx-3 flex transition-transform duration-500 ease-out motion-reduce:transition-none"
           style={{ transform: `translateX(-${index * cardBasis}%)` }}
         >
           {categories.map((cat, ci) => (
@@ -195,18 +218,27 @@ export function MacromoleculeSlider() {
       </div>
 
       {/* Progress indicators (one per slide position) */}
-      <div className="mt-6 flex items-center gap-2">
+      <div className="mt-4 flex items-center gap-2">
         {Array.from({ length: maxIndex + 1 }).map((_, i) => (
           <button
             key={i}
             type="button"
-            onClick={() => setIndex(i)}
+            onClick={() => {
+              setStopped(true)
+              setIndex(i)
+            }}
             aria-label={`Go to slide ${i + 1}`}
             aria-current={i === index}
-            className={`h-1 flex-1 transition-colors ${
-              i === index ? 'bg-foreground' : 'bg-neutral-200 hover:bg-neutral-400'
-            }`}
-          />
+            // A 4px-tall bar is impossible to hit with a thumb, so the target is
+            // padded out to a finger's height while the mark itself stays thin.
+            className="group flex-1 py-2.5"
+          >
+            <span
+              className={`block h-1 transition-colors ${
+                i === index ? 'bg-foreground' : 'bg-neutral-200 group-hover:bg-neutral-400'
+              }`}
+            />
+          </button>
         ))}
       </div>
     </section>

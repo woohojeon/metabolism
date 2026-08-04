@@ -172,6 +172,8 @@
   }
   html {
     @apply font-sans;
+    /* iOS inflates body text in landscape unless it is told not to. */
+    -webkit-text-size-adjust: 100%;
   }
   /* Show a finger/pointer cursor on all clickable controls */
   button:not(:disabled),
@@ -184,6 +186,30 @@
   button:disabled,
   [aria-disabled='true'] {
     @apply cursor-not-allowed;
+  }
+
+  /* Touch devices: skip the 300ms wait for a second tap before a tap counts as
+     a click, and stop a stray double-tap on a control from zooming the page. */
+  button,
+  [role='button'],
+  a[href],
+  summary,
+  label[for],
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
+  }
+
+  /* Safari on iOS zooms the whole page in when a field smaller than 16px takes
+     focus, and never zooms back out. The page's own type scale wins wherever it
+     is already large enough. */
+  @media (pointer: coarse) {
+    input:not([type='file']):not([type='checkbox']):not([type='radio']),
+    select,
+    textarea {
+      font-size: max(16px, 1em);
+    }
   }
 }
 

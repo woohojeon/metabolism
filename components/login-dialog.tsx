@@ -29,6 +29,17 @@ export function LoginDialog({
     }
   }, [open])
 
+  // Hold the page still behind the dialog — on a phone it covers the screen,
+  // and a scroll that misses the form would move the page instead.
+  useEffect(() => {
+    if (!open) return
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previous
+    }
+  }, [open])
+
   if (!open) return null
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -48,7 +59,9 @@ export function LoginDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center px-4 pt-[14vh]">
+    // `dvh`, and less of it on a phone: the on-screen keyboard takes the lower
+    // half of the window as soon as the username field is focused.
+    <div className="fixed inset-0 z-[60] flex items-start justify-center px-4 pt-[6dvh] sm:pt-[14dvh]">
       <div aria-hidden onClick={onClose} className="absolute inset-0 bg-ink/60" />
       <div
         role="dialog"

@@ -31,11 +31,14 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  colorScheme: 'light dark',
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: 'white' },
-    { media: '(prefers-color-scheme: dark)', color: 'black' },
-  ],
+  // Stated rather than left to the default so phones lay the page out at their
+  // own width instead of at a desktop width scaled down. `maximumScale` is left
+  // alone on purpose — pinch-to-zoom is how a reader enlarges a pathway diagram.
+  width: 'device-width',
+  initialScale: 1,
+  // The page is a light one wherever it is opened. See the `light` class below.
+  colorScheme: 'light',
+  themeColor: 'white',
 }
 
 export default function RootLayout({
@@ -44,9 +47,14 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
+    // `light` opts out of the dark palette in globals.css. The article styling
+    // is written in fixed light-mode neutrals throughout — dark grey body copy,
+    // white figure cards — with no `dark:` variants anywhere, so on a phone set
+    // to dark mode the background alone would flip to black and take the text
+    // with it. Every device gets the one palette the pages were designed in.
     <html
       lang="en"
-      className={`${libreCaslon.variable} ${archivo.variable} bg-background`}
+      className={`light ${libreCaslon.variable} ${archivo.variable} bg-background`}
     >
       <body className="font-sans antialiased">
         <AuthProvider>{children}</AuthProvider>

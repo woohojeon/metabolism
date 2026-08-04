@@ -6,6 +6,19 @@ import { useAuth } from './auth-provider'
 import { LoginDialog } from './login-dialog'
 import { uploadFile } from '@/lib/site-content'
 
+// Safari on iOS renders a PDF in an iframe as a single, unscrollable first
+// page, so the inline viewer is a dead end on a phone or an iPad. There the
+// slides open in a tab of their own, where the system PDF reader takes over.
+function useOpensInOwnTab() {
+  const [ownTab, setOwnTab] = useState(false)
+
+  useEffect(() => {
+    setOwnTab(window.matchMedia('(pointer: coarse)').matches)
+  }, [])
+
+  return ownTab
+}
+
 // The lecture-slide card. Slides are PDFs: logged-in users open one inline or
 // download it, and the administrator uploads a replacement.
 export function SlideViewer({
@@ -26,6 +39,10 @@ export function SlideViewer({
   const [viewerOpen, setViewerOpen] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const ownTab = useOpensInOwnTab()
+
+  const openClass =
+    'inline-flex items-center justify-center gap-2 rounded bg-science-red px-4 py-2 text-[12px] font-bold text-white transition-opacity hover:opacity-90'
 
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -59,16 +76,18 @@ export function SlideViewer({
       {user ? (
         <>
           <div className="mt-3 flex flex-col gap-2">
-            {pdf && (
-              <button
-                type="button"
-                onClick={() => setViewerOpen(true)}
-                className="inline-flex items-center justify-center gap-2 rounded bg-science-red px-4 py-2 text-[12px] font-bold text-white transition-opacity hover:opacity-90"
-              >
-                <Maximize2 className="size-[15px]" />
-                슬라이드 열기
-              </button>
-            )}
+            {pdf &&
+              (ownTab ? (
+                <a href={pdf} target="_blank" rel="noopener noreferrer" className={openClass}>
+                  <Maximize2 className="size-[15px]" />
+                  슬라이드 열기
+                </a>
+              ) : (
+                <button type="button" onClick={() => setViewerOpen(true)} className={openClass}>
+                  <Maximize2 className="size-[15px]" />
+                  슬라이드 열기
+                </button>
+              ))}
             {pdf && (
               <a
                 href={pdf}
