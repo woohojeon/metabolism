@@ -111,6 +111,35 @@ export function clearHomeNewspaper(): Promise<void> {
   return clearContent(NEWSPAPER_KEY)
 }
 
+// The instructor page: who is teaching the course and how to reach them. One
+// document, shared the same way as everything else. The portrait is not part of
+// it — only the writing is edited here.
+
+export type InstructorProfile = {
+  name: string
+  title: string
+  department: string
+  college: string
+  degree: string
+  email: string
+  phone: string
+  office: string
+}
+
+const INSTRUCTOR_KEY = 'metabolism-instructor'
+
+export function loadInstructorProfile(): Promise<InstructorProfile | null> {
+  return loadContent<InstructorProfile>(INSTRUCTOR_KEY)
+}
+
+export function saveInstructorProfile(profile: InstructorProfile): Promise<void> {
+  return saveContent(INSTRUCTOR_KEY, profile)
+}
+
+export function clearInstructorProfile(): Promise<void> {
+  return clearContent(INSTRUCTOR_KEY)
+}
+
 // Category-level figure gallery edits (add/remove images), shared the same way.
 // The entries are URLs from /api/upload rather than data: URLs once Supabase is
 // configured, which is also what keeps this document small.

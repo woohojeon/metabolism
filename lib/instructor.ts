@@ -1,3 +1,5 @@
+import type { InstructorProfile } from '@/lib/edits'
+
 export const instructor = {
   name: 'Jaewon Seol',
   title: 'Professor',
@@ -31,4 +33,18 @@ export const instructor = {
     { title: 'Naringenin exerts anticancer effects in malignant melanoma', journal: 'International Journal of Molecular Medicine', year: '2020' },
     { title: 'VEGF-A regulated by progesterone governs uterine angiogenesis during pregnancy', journal: 'EMBO Molecular Medicine', year: '2017' },
   ],
+}
+
+// The lines the administrator can rewrite, as they ship. Both the instructor
+// page and the home page's card start from these and load whatever was saved
+// over them, so an edit made in one place shows in the other.
+export const publishedProfile: InstructorProfile = {
+  name: instructor.name,
+  title: instructor.title,
+  department: instructor.department,
+  college: instructor.college,
+  degree: instructor.degree,
+  email: instructor.email,
+  phone: instructor.phone,
+  office: instructor.office,
 }
