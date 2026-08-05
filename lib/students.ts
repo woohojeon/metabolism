@@ -58,9 +58,52 @@ function writeLocal(rows: Student[]) {
   }
 }
 
+// ------------------------------------------------------------------- session
+
+/**
+ * Fired when the server turns down a write because the administrator's session
+ * has lapsed. The provider listens and drops the stored sign-in, so the page
+ * stops offering controls that no longer work.
+ */
+export const ADMIN_EXPIRED_EVENT = 'vbiochem:admin-expired'
+
+export function announceAdminExpired() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(ADMIN_EXPIRED_EVENT))
+  }
+}
+
+/**
+ * Whether the server still recognises this browser as the administrator.
+ *
+ * A dropped connection answers yes: the stored sign-in is worth keeping
+ * through a blip, and the next write will say so plainly if it is not.
+ */
+export async function adminSessionAlive(): Promise<boolean> {
+  if (!usingSupabase) return true
+  try {
+    const res = await fetch('/api/login', { cache: 'no-store' })
+    if (!res.ok) return false
+    return ((await res.json()) as { isAdmin?: boolean }).isAdmin === true
+  } catch {
+    return true
+  }
+}
+
+/** The message to show when a request was refused for want of a live session. */
+export const SESSION_EXPIRED_MESSAGE =
+  '로그인이 만료되었습니다. 다시 로그인한 뒤 저장해 주세요.'
+
 // ------------------------------------------------------------------ requests
 
 async function fail(res: Response, fallback: string) {
+  // Only the administrator is ever shown the controls behind these calls, so a
+  // refusal here means the session lapsed rather than that the wrong person
+  // asked.
+  if (res.status === 403) {
+    announceAdminExpired()
+    return new Error(SESSION_EXPIRED_MESSAGE)
+  }
   try {
     const body = await res.json()
     return new Error(typeof body?.error === 'string' ? body.error : fallback)

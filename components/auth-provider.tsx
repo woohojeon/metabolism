@@ -1,7 +1,13 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState } from 'react'
-import { ADMIN_USERNAME, endSession, verifyLogin } from '@/lib/students'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import {
+  ADMIN_EXPIRED_EVENT,
+  ADMIN_USERNAME,
+  adminSessionAlive,
+  endSession,
+  verifyLogin,
+} from '@/lib/students'
 
 type AuthContextValue = {
   user: string | null
@@ -29,15 +35,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
 
-  useEffect(() => {
+  const forget = useCallback(() => {
+    setUser(null)
     try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) setUser(saved)
+      localStorage.removeItem(STORAGE_KEY)
     } catch {
       // ignore storage access errors
     }
-    setReady(true)
   }, [])
+
+  useEffect(() => {
+    let saved: string | null = null
+    try {
+      saved = localStorage.getItem(STORAGE_KEY)
+    } catch {
+      // ignore storage access errors
+    }
+
+    // A student's sign-in only decides what this browser shows them, so the key
+    // is the whole of it.
+    if (saved !== ADMIN_USERNAME) {
+      setUser(saved)
+      setReady(true)
+      return
+    }
+
+    // The administrator's is different: what the server obeys is an httpOnly
+    // cookie that expires, while this key never does. Restored without asking,
+    // it puts edit controls back on a page whose every save the server will
+    // refuse. So the sign-in is only restored once the server confirms it.
+    let stale = false
+    adminSessionAlive().then((alive) => {
+      if (stale) return
+      if (alive) setUser(saved)
+      else forget()
+      setReady(true)
+    })
+    return () => {
+      stale = true
+    }
+  }, [forget])
+
+  // The session can also lapse with the page still open. The first refused
+  // write says so, and the controls go away rather than staying to fail again.
+  useEffect(() => {
+    window.addEventListener(ADMIN_EXPIRED_EVENT, forget)
+    return () => window.removeEventListener(ADMIN_EXPIRED_EVENT, forget)
+  }, [forget])
 
   const login = async (username: string, password: string) => {
     const id = username.trim()
@@ -54,12 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const logout = () => {
-    setUser(null)
-    try {
-      localStorage.removeItem(STORAGE_KEY)
-    } catch {
-      // ignore
-    }
+    forget()
     void endSession()
   }
 

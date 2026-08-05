@@ -1,5 +1,11 @@
+import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { ADMIN_COOKIE, ADMIN_COOKIE_MAX_AGE, signAdminSession } from '@/lib/admin-session'
+import {
+  ADMIN_COOKIE,
+  ADMIN_COOKIE_MAX_AGE,
+  isAdminSession,
+  signAdminSession,
+} from '@/lib/admin-session'
 import { ADMIN_USERNAME } from '@/lib/students'
 import { sb, supabaseReady } from '@/lib/supabase-rest'
 
@@ -8,6 +14,32 @@ import { sb, supabaseReady } from '@/lib/supabase-rest'
 // Signing in as the administrator also sets the /admin session cookie.
 
 type Row = { username: string; password: string }
+
+/**
+ * GET /api/login — whether this browser still holds a valid admin session.
+ *
+ * The browser cannot read the cookie that decides this, so without asking it
+ * has no way to know its own session has lapsed, and goes on showing edit
+ * controls that every save refuses. A live session is renewed here, so a
+ * working day of use does not end mid-edit.
+ */
+export async function GET() {
+  const jar = await cookies()
+  const alive = isAdminSession(jar.get(ADMIN_COOKIE)?.value)
+  const res = NextResponse.json({ isAdmin: alive })
+
+  if (alive) {
+    res.cookies.set(ADMIN_COOKIE, signAdminSession(), {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: ADMIN_COOKIE_MAX_AGE,
+    })
+  }
+
+  return res
+}
 
 export async function POST(request: Request) {
   if (!supabaseReady) {

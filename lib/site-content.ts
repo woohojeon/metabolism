@@ -8,7 +8,7 @@
 //                    Nothing is shared; this is the demo behaviour the site had
 //                    before Supabase was configured.
 
-import { usingSupabase } from './students'
+import { announceAdminExpired, SESSION_EXPIRED_MESSAGE, usingSupabase } from './students'
 
 // ------------------------------------------------------------------ documents
 
@@ -38,6 +38,13 @@ export async function loadContent<T>(key: string): Promise<T | null> {
 }
 
 async function failure(res: Response, fallback: string) {
+  // These writes are only ever offered to the administrator, so a refusal means
+  // the session lapsed — an answer the editor can act on, unlike being told
+  // they lack a permission they were just using.
+  if (res.status === 403) {
+    announceAdminExpired()
+    return new Error(SESSION_EXPIRED_MESSAGE)
+  }
   try {
     const body = await res.json()
     return new Error(typeof body?.error === 'string' ? body.error : fallback)
