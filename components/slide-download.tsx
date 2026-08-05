@@ -9,11 +9,20 @@ import { uploadFile } from '@/lib/site-content'
 // Safari on iOS renders a PDF in an iframe as a single, unscrollable first
 // page, so the inline viewer is a dead end on a phone or an iPad. There the
 // slides open in a tab of their own, where the system PDF reader takes over.
+//
+// Touch is not asked about through the pointer query alone: an iPad driven
+// from a trackpad, or asked for the desktop version of a site, answers
+// `pointer: fine` while still being the browser that cannot scroll the
+// iframe. Every iPad and iPhone reports touch points, so that settles it.
+// Erring towards a new tab costs a desktop with a touchscreen nothing — the
+// PDF opens in the browser's own reader either way.
 function useOpensInOwnTab() {
   const [ownTab, setOwnTab] = useState(false)
 
   useEffect(() => {
-    setOwnTab(window.matchMedia('(pointer: coarse)').matches)
+    setOwnTab(
+      window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0,
+    )
   }, [])
 
   return ownTab

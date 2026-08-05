@@ -258,8 +258,26 @@ export function EditablePathway({
       </header>
 
       <div className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-12">
+        {/* The slides come before the article on a narrow screen. Left in the
+            sidebar they landed below the whole of it — past the overview, the
+            diagram, the figures and the videos — which on a phone is far
+            enough down to look like they are not there at all. On `lg` the
+            explicit placement puts them back at the top of the sidebar
+            column, above the rest of it. */}
+        {(data.slidesPdf || isAdmin) && (
+          <div className="lg:col-span-4 lg:col-start-9 lg:row-start-1">
+            <SlideViewer
+              pdf={data.slidesPdf}
+              filename={`${data.slug}.pdf`}
+              canEdit={isAdmin}
+              onUpload={setSlides}
+              onDelete={deleteSlides}
+            />
+          </div>
+        )}
+
         {/* Main column */}
-        <article className="lg:col-span-8">
+        <article className="lg:col-span-8 lg:col-start-1 lg:row-start-1 lg:row-span-2">
           {hasOverview && (
             <section>
               <SectionHeading title="Overview" {...sectionProps('overview')} />
@@ -491,17 +509,8 @@ export function EditablePathway({
         </article>
 
         {/* Sidebar */}
-        <aside className="lg:col-span-4">
+        <aside className="lg:col-span-4 lg:col-start-9 lg:row-start-2">
           <div className="sticky top-20 space-y-6">
-            {(data.slidesPdf || isAdmin) && (
-              <SlideViewer
-                pdf={data.slidesPdf}
-                filename={`${data.slug}.pdf`}
-                canEdit={isAdmin}
-                onUpload={setSlides}
-                onDelete={deleteSlides}
-              />
-            )}
             <div className="relative aspect-[4/3] w-full overflow-hidden bg-neutral-100">
               <Image
                 src={category.image}
