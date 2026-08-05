@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@/components/auth-provider'
 import { sanitizeRich } from '@/lib/rich-text'
 import { type QuizKind, type QuizQuestion, quizSeed } from '@/lib/pathway-quiz'
-import { clearPathwayQuiz, loadPathwayQuiz, savePathwayQuiz } from '@/lib/edits'
+import { loadPathwayQuiz, savePathwayQuiz } from '@/lib/edits'
 
 // A self-check quiz, answered one question at a time: picking a choice reveals
 // the verdict and the explanation straight away rather than saving the score
@@ -35,14 +35,12 @@ export function PathwayQuiz({ path }: { path: string }) {
   const [questions, setQuestions] = useState<QuizQuestion[]>(seed)
   // Non-null means the administrator is editing; the player is hidden meanwhile.
   const [draft, setDraft] = useState<QuizQuestion[] | null>(null)
-  const [hasEdits, setHasEdits] = useState(false)
 
   useEffect(() => {
     let stale = false
     loadPathwayQuiz(path).then((saved) => {
       if (stale || !saved) return
       setQuestions(saved)
-      setHasEdits(true)
     })
     return () => {
       stale = true
@@ -70,22 +68,6 @@ export function PathwayQuiz({ path }: { path: string }) {
       return
     }
     setQuestions(cleaned)
-    setHasEdits(true)
-    setDraft(null)
-  }
-
-  async function resetToOriginal() {
-    if (!window.confirm(seed.length ? '퀴즈를 원래 문제로 되돌립니다.' : '이 페이지의 퀴즈를 모두 삭제합니다.')) {
-      return
-    }
-    try {
-      await clearPathwayQuiz(path)
-    } catch (e) {
-      window.alert(e instanceof Error ? e.message : '되돌리지 못했습니다.')
-      return
-    }
-    setQuestions(seed)
-    setHasEdits(false)
     setDraft(null)
   }
 
@@ -161,17 +143,6 @@ export function PathwayQuiz({ path }: { path: string }) {
         />
       )}
 
-      {isAdmin && hasEdits && !editing && (
-        <div className="mt-3 text-right">
-          <button
-            type="button"
-            onClick={resetToOriginal}
-            className="text-[12px] font-bold text-neutral-400 transition-colors hover:text-science-red"
-          >
-            {seed.length ? '원래 문제로 되돌리기' : '퀴즈 전체 삭제'}
-          </button>
-        </div>
-      )}
     </section>
   )
 }

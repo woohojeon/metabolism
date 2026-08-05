@@ -14,7 +14,7 @@ import {
 } from '@/components/key-step-canvas'
 import { sanitizeRich } from '@/lib/rich-text'
 import type { Category, Pathway, Video } from '@/lib/pathways'
-import { clearPathwayEdit, loadPathwayEdit, savePathwayEdit } from '@/lib/edits'
+import { loadPathwayEdit, savePathwayEdit } from '@/lib/edits'
 import { deleteUpload, uploadFile } from '@/lib/site-content'
 import { useAuth } from '@/components/auth-provider'
 
@@ -91,29 +91,6 @@ export function EditablePathway({
     setHasEdits(true)
     setEditing(null)
     dropped.forEach((src) => void deleteUpload(src))
-  }
-
-  async function resetToOriginal() {
-    if (!window.confirm('이 페이지의 모든 수정을 취소하고 원본으로 되돌립니다.')) return
-    // Whatever was uploaded to this page and is not part of what it ships with
-    // has nothing pointing at it once the edit is thrown away.
-    const dropped = [data.slidesPdf, ...(data.figures ?? [])].filter(
-      (url): url is string =>
-        typeof url === 'string' &&
-        url !== '' &&
-        url !== pathway.slidesPdf &&
-        !(pathway.figures ?? []).includes(url),
-    )
-    try {
-      await clearPathwayEdit(category.slug, pathway.slug)
-    } catch (e) {
-      window.alert(e instanceof Error ? e.message : '되돌리지 못했습니다.')
-      return
-    }
-    setData(pathway)
-    setHasEdits(false)
-    setEditing(null)
-    dropped.forEach((url) => void deleteUpload(url))
   }
 
   // The section being edited reads from `draft`; every other section from `data`.
@@ -212,18 +189,6 @@ export function EditablePathway({
 
   return (
     <>
-      {isAdmin && hasEdits && (
-        <div className="mt-6 flex items-center justify-end">
-          <button
-            type="button"
-            onClick={resetToOriginal}
-            className="text-[12px] font-bold text-neutral-400 transition-colors hover:text-science-red"
-          >
-            원본으로 되돌리기
-          </button>
-        </div>
-      )}
-
       {/* Title block */}
       <header className="mt-6 border-b border-neutral-200 pb-8">
         <div className="flex flex-wrap items-center gap-x-2">

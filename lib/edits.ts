@@ -1,6 +1,6 @@
 import type { Pathway } from '@/lib/pathways'
 import type { QuizQuestion } from '@/lib/pathway-quiz'
-import { clearContent, loadContent, saveContent } from '@/lib/site-content'
+import { loadContent, saveContent } from '@/lib/site-content'
 
 // Pathway article edits, stored per category/pathway. These go to Supabase when
 // it is configured, so an edit is visible on every computer; see
@@ -27,13 +27,6 @@ export function savePathwayEdit(
   return saveContent(keyFor(categorySlug, pathwaySlug), data)
 }
 
-export function clearPathwayEdit(
-  categorySlug: string,
-  pathwaySlug: string,
-): Promise<void> {
-  return clearContent(keyFor(categorySlug, pathwaySlug))
-}
-
 // The self-check quiz, kept as its own document rather than a field on the
 // pathway edit: the article and the questions are edited separately, and one
 // save must not overwrite the other. `path` is the page's own path —
@@ -48,10 +41,6 @@ export function loadPathwayQuiz(path: string): Promise<QuizQuestion[] | null> {
 
 export function savePathwayQuiz(path: string, questions: QuizQuestion[]): Promise<void> {
   return saveContent(QUIZ_PREFIX + path, questions)
-}
-
-export function clearPathwayQuiz(path: string): Promise<void> {
-  return clearContent(QUIZ_PREFIX + path)
 }
 
 // The home page hero: its headline, the paragraph under it, and the background
@@ -91,10 +80,6 @@ export function saveHomeHero(hero: HomeHero): Promise<void> {
   return saveContent(HERO_KEY, hero)
 }
 
-export function clearHomeHero(): Promise<void> {
-  return clearContent(HERO_KEY)
-}
-
 // The home page's newspaper download card: its title and the PDF it hands out.
 // One document, shared the same way as everything else. Only the administrator
 // (jbnu) edits it; every visitor downloads whatever was last saved.
@@ -113,10 +98,6 @@ export function loadHomeNewspaper(): Promise<HomeNewspaper | null> {
 
 export function saveHomeNewspaper(data: HomeNewspaper): Promise<void> {
   return saveContent(NEWSPAPER_KEY, data)
-}
-
-export function clearHomeNewspaper(): Promise<void> {
-  return clearContent(NEWSPAPER_KEY)
 }
 
 // The instructor page: who is teaching the course and how to reach them. One
@@ -142,10 +123,6 @@ export function loadInstructorProfile(): Promise<InstructorProfile | null> {
 
 export function saveInstructorProfile(profile: InstructorProfile): Promise<void> {
   return saveContent(INSTRUCTOR_KEY, profile)
-}
-
-export function clearInstructorProfile(): Promise<void> {
-  return clearContent(INSTRUCTOR_KEY)
 }
 
 // Category-level figure gallery edits (add/remove images), shared the same way.

@@ -6,7 +6,6 @@ import { useEffect, useRef, useState } from 'react'
 import { CategoryLabel } from '@/components/article-bits'
 import { useAuth } from '@/components/auth-provider'
 import {
-  clearInstructorProfile,
   loadInstructorProfile,
   saveInstructorProfile,
   type InstructorProfile,
@@ -26,7 +25,6 @@ export function EditableInstructor({
   const [data, setData] = useState<InstructorProfile>(published)
   const [draft, setDraft] = useState<InstructorProfile>(published)
   const [editing, setEditing] = useState(false)
-  const [hasEdits, setHasEdits] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Prefer the saved edit over the published copy.
@@ -35,7 +33,6 @@ export function EditableInstructor({
     loadInstructorProfile().then((saved) => {
       if (stale || !saved) return
       setData({ ...published, ...saved })
-      setHasEdits(true)
     })
     return () => {
       stale = true
@@ -63,21 +60,6 @@ export function EditableInstructor({
       return
     }
     setData(draft)
-    setHasEdits(true)
-    setEditing(false)
-  }
-
-  async function resetToOriginal() {
-    if (!window.confirm('교수 소개를 원래대로 되돌립니다.')) return
-    try {
-      await clearInstructorProfile()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '되돌리지 못했습니다.')
-      return
-    }
-    setData(published)
-    setDraft(published)
-    setHasEdits(false)
     setEditing(false)
   }
 
@@ -107,25 +89,14 @@ export function EditableInstructor({
               </button>
             </>
           ) : (
-            <>
-              <button
-                type="button"
-                onClick={startEditing}
-                className="inline-flex shrink-0 items-center gap-1 rounded border border-science-red/40 bg-science-red/5 px-2.5 py-1 text-[12px] font-bold text-science-red transition-colors hover:bg-science-red/10"
-              >
-                <Pencil className="size-[13px]" />
-                편집
-              </button>
-              {hasEdits && (
-                <button
-                  type="button"
-                  onClick={resetToOriginal}
-                  className="text-[12px] font-bold text-neutral-400 transition-colors hover:text-science-red"
-                >
-                  원본으로 되돌리기
-                </button>
-              )}
-            </>
+            <button
+              type="button"
+              onClick={startEditing}
+              className="inline-flex shrink-0 items-center gap-1 rounded border border-science-red/40 bg-science-red/5 px-2.5 py-1 text-[12px] font-bold text-science-red transition-colors hover:bg-science-red/10"
+            >
+              <Pencil className="size-[13px]" />
+              편집
+            </button>
           )}
         </div>
       )}

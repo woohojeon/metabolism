@@ -5,13 +5,7 @@ import { ChevronDown, ChevronUp, Pencil, Upload } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { CategoryLabel, MetaDate } from '@/components/article-bits'
 import { useAuth } from '@/components/auth-provider'
-import {
-  clearHomeHero,
-  loadHomeHero,
-  saveHomeHero,
-  type BoxSize,
-  type HomeHero,
-} from '@/lib/edits'
+import { loadHomeHero, saveHomeHero, type BoxSize, type HomeHero } from '@/lib/edits'
 import { deleteUpload, uploadFile } from '@/lib/site-content'
 
 // The home page's opening feature: the photograph, the headline over it and the
@@ -22,7 +16,6 @@ export function HomeHero({ published }: { published: HomeHero }) {
   const [data, setData] = useState<HomeHero>(published)
   const [draft, setDraft] = useState<HomeHero>(published)
   const [editing, setEditing] = useState(false)
-  const [hasEdits, setHasEdits] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Prefer the saved edit over the published copy.
@@ -31,7 +24,6 @@ export function HomeHero({ published }: { published: HomeHero }) {
     loadHomeHero().then((saved) => {
       if (stale || !saved) return
       setData({ ...published, ...saved })
-      setHasEdits(true)
     })
     return () => {
       stale = true
@@ -60,27 +52,9 @@ export function HomeHero({ published }: { published: HomeHero }) {
       return
     }
     setData(draft)
-    setHasEdits(true)
     setEditing(false)
     // Only once the new picture is stored, and only if it is a different one.
     if (replaced && replaced !== draft.image) void deleteUpload(replaced)
-  }
-
-  async function resetToOriginal() {
-    if (!window.confirm('제목과 소개글, 배경 사진을 원래대로 되돌립니다.')) return
-    const replaced = data.image
-    try {
-      await clearHomeHero()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '되돌리지 못했습니다.')
-      return
-    }
-    setData(published)
-    setDraft(published)
-    setHasEdits(false)
-    setEditing(false)
-    // The uploaded picture is unreferenced now the shipped one is back.
-    if (replaced && replaced !== published.image) void deleteUpload(replaced)
   }
 
   const shown = editing ? draft : data
@@ -202,15 +176,6 @@ export function HomeHero({ published }: { published: HomeHero }) {
             </>
           ) : (
             <>
-              {hasEdits && (
-                <button
-                  type="button"
-                  onClick={resetToOriginal}
-                  className="rounded border border-white/40 bg-black/40 px-2.5 py-1 text-[12px] font-bold text-white/80 transition-colors hover:border-white hover:text-white"
-                >
-                  원본으로 되돌리기
-                </button>
-              )}
               <button
                 type="button"
                 onClick={startEditing}

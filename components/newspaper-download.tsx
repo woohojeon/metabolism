@@ -4,12 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Download, Lock, Newspaper, Pencil, Trash2, Upload } from 'lucide-react'
 import { useAuth } from './auth-provider'
 import { LoginDialog } from './login-dialog'
-import {
-  clearHomeNewspaper,
-  loadHomeNewspaper,
-  saveHomeNewspaper,
-  type HomeNewspaper,
-} from '@/lib/edits'
+import { loadHomeNewspaper, saveHomeNewspaper, type HomeNewspaper } from '@/lib/edits'
 import { downloadUrl } from '@/lib/download-url'
 import { deleteUpload, uploadFile } from '@/lib/site-content'
 
@@ -26,7 +21,6 @@ export function NewspaperDownload({ published }: { published: HomeNewspaper }) {
   const [data, setData] = useState<HomeNewspaper>(published)
   const [draft, setDraft] = useState<HomeNewspaper>(published)
   const [editing, setEditing] = useState(false)
-  const [hasEdits, setHasEdits] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -37,7 +31,6 @@ export function NewspaperDownload({ published }: { published: HomeNewspaper }) {
     loadHomeNewspaper().then((saved) => {
       if (stale || !saved) return
       setData({ ...published, ...saved })
-      setHasEdits(true)
     })
     return () => {
       stale = true
@@ -86,28 +79,10 @@ export function NewspaperDownload({ published }: { published: HomeNewspaper }) {
       return
     }
     setData(draft)
-    setHasEdits(true)
     setEditing(false)
     // Only now that the new state is stored: had the save failed, the PDF just
     // deleted would still be the one every visitor downloads.
     if (replaced && replaced !== draft.pdf) void deleteUpload(replaced)
-  }
-
-  async function resetToOriginal() {
-    if (!window.confirm('신문 제목과 PDF를 원래대로 되돌립니다.')) return
-    const replaced = data.pdf
-    try {
-      await clearHomeNewspaper()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '되돌리지 못했습니다.')
-      return
-    }
-    setData(published)
-    setDraft(published)
-    setHasEdits(false)
-    setEditing(false)
-    // The uploaded PDF is unreferenced now the shipped one is back.
-    if (replaced && replaced !== published.pdf) void deleteUpload(replaced)
   }
 
   const shown = editing ? draft : data
@@ -233,25 +208,14 @@ export function NewspaperDownload({ published }: { published: HomeNewspaper }) {
               </button>
             </>
           ) : (
-            <>
-              <button
-                type="button"
-                onClick={startEditing}
-                className="inline-flex shrink-0 items-center gap-1 rounded border border-science-red/40 bg-science-red/5 px-2.5 py-1 text-[12px] font-bold text-science-red transition-colors hover:bg-science-red/10"
-              >
-                <Pencil className="size-[13px]" />
-                편집
-              </button>
-              {hasEdits && (
-                <button
-                  type="button"
-                  onClick={resetToOriginal}
-                  className="text-[12px] font-bold text-neutral-400 transition-colors hover:text-science-red"
-                >
-                  원본으로 되돌리기
-                </button>
-              )}
-            </>
+            <button
+              type="button"
+              onClick={startEditing}
+              className="inline-flex shrink-0 items-center gap-1 rounded border border-science-red/40 bg-science-red/5 px-2.5 py-1 text-[12px] font-bold text-science-red transition-colors hover:bg-science-red/10"
+            >
+              <Pencil className="size-[13px]" />
+              편집
+            </button>
           )}
         </div>
       )}
