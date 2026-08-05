@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Download, Lock, Maximize2, Trash2, Upload, X } from 'lucide-react'
 import { useAuth } from './auth-provider'
 import { LoginDialog } from './login-dialog'
+import { downloadUrl } from '@/lib/download-url'
 import { uploadFile } from '@/lib/site-content'
 
 // Safari on iOS renders a PDF in an iframe as a single, unscrollable first
@@ -99,7 +100,7 @@ export function SlideViewer({
               ))}
             {pdf && (
               <a
-                href={pdf}
+                href={downloadUrl(pdf, filename)}
                 download={filename}
                 className="inline-flex items-center justify-center gap-2 rounded border border-science-red px-4 py-2 text-[12px] font-bold text-science-red transition-colors hover:bg-science-red hover:text-white"
               >

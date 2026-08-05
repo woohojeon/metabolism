@@ -10,6 +10,7 @@ import {
   saveHomeNewspaper,
   type HomeNewspaper,
 } from '@/lib/edits'
+import { downloadUrl } from '@/lib/download-url'
 import { deleteUpload, uploadFile } from '@/lib/site-content'
 
 // The veterinary-biochemistry newspaper download card. The PDF is served from
@@ -157,7 +158,7 @@ export function NewspaperDownload({ published }: { published: HomeNewspaper }) {
             </p>
           ) : user ? (
             <a
-              href={shown.pdf}
+              href={downloadUrl(shown.pdf, downloadName)}
               download={downloadName}
               className="inline-flex w-full items-center justify-center gap-2 rounded bg-science-red px-5 py-3 text-[13px] font-bold text-white transition-opacity hover:opacity-90 sm:w-auto sm:py-2.5 sm:text-[12px]"
             >
