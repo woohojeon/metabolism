@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Download, Lock, Newspaper, Pencil, Upload } from 'lucide-react'
+import { Download, Lock, Newspaper, Pencil, Trash2, Upload } from 'lucide-react'
 import { useAuth } from './auth-provider'
 import { LoginDialog } from './login-dialog'
 import {
@@ -10,7 +10,7 @@ import {
   saveHomeNewspaper,
   type HomeNewspaper,
 } from '@/lib/edits'
-import { uploadFile } from '@/lib/site-content'
+import { deleteUpload, uploadFile } from '@/lib/site-content'
 
 // The veterinary-biochemistry newspaper download card. The PDF is served from
 // /public (or from an upload once replaced), but only logged-in users are shown
@@ -77,6 +77,7 @@ export function NewspaperDownload({ published }: { published: HomeNewspaper }) {
   // Saving reaches the server, so it can fail. Stay in edit mode when it does,
   // rather than showing a change no other visitor would see.
   async function save() {
+    const replaced = data.pdf
     try {
       await saveHomeNewspaper(draft)
     } catch (e) {
@@ -86,10 +87,14 @@ export function NewspaperDownload({ published }: { published: HomeNewspaper }) {
     setData(draft)
     setHasEdits(true)
     setEditing(false)
+    // Only now that the new state is stored: had the save failed, the PDF just
+    // deleted would still be the one every visitor downloads.
+    if (replaced && replaced !== draft.pdf) void deleteUpload(replaced)
   }
 
   async function resetToOriginal() {
     if (!window.confirm('신문 제목과 PDF를 원래대로 되돌립니다.')) return
+    const replaced = data.pdf
     try {
       await clearHomeNewspaper()
     } catch (e) {
@@ -100,10 +105,19 @@ export function NewspaperDownload({ published }: { published: HomeNewspaper }) {
     setDraft(published)
     setHasEdits(false)
     setEditing(false)
+    // The uploaded PDF is unreferenced now the shipped one is back.
+    if (replaced && replaced !== published.pdf) void deleteUpload(replaced)
   }
 
   const shown = editing ? draft : data
   const downloadName = `${shown.title.trim() || 'newspaper'}.pdf`
+  // A PDF picked but not yet saved. Uploading is silent otherwise — the file
+  // goes up and nothing on screen changes, which reads as a failure.
+  const staged = editing && draft.pdf !== data.pdf
+
+  // Once the newspaper is deleted there is nothing here for a reader. The
+  // administrator still sees the card, to put a new one up.
+  if (!shown.pdf && !isAdmin) return null
 
   return (
     <section
@@ -136,7 +150,12 @@ export function NewspaperDownload({ published }: { published: HomeNewspaper }) {
         {/* Full width where the card is a single column, so the tap target is
             the whole row rather than a small button at the left margin. */}
         <div className="flex shrink-0 items-center gap-2">
-          {user ? (
+          {!shown.pdf ? (
+            <p className="text-[13px] leading-snug text-neutral-500">
+              등록된 신문이 없습니다.
+              {isAdmin && ' 편집을 눌러 PDF를 올리세요.'}
+            </p>
+          ) : user ? (
             <a
               href={shown.pdf}
               download={downloadName}
@@ -171,15 +190,31 @@ export function NewspaperDownload({ published }: { published: HomeNewspaper }) {
                 onChange={onPickPdf}
                 className="hidden"
               />
-              <button
-                type="button"
-                onClick={() => fileRef.current?.click()}
-                disabled={busy}
-                className="inline-flex items-center gap-1 rounded border border-science-red/40 bg-science-red/5 px-3 py-1.5 text-[12px] font-bold text-science-red transition-colors hover:bg-science-red/10 disabled:opacity-50"
-              >
-                <Upload className="size-[13px]" />
-                {busy ? '올리는 중…' : 'PDF 교체 (.pdf)'}
-              </button>
+              {/* Delete and upload rather than one "replace": taking the old
+                  newspaper down and putting a new one up are separate
+                  decisions, and the first does not have to wait on the second.
+                  Neither reaches the server until 저장. */}
+              {draft.pdf ? (
+                <button
+                  type="button"
+                  onClick={() => setDraft((d) => ({ ...d, pdf: '' }))}
+                  disabled={busy}
+                  className="inline-flex items-center gap-1 rounded border border-neutral-300 px-3 py-1.5 text-[12px] font-bold text-neutral-600 transition-colors hover:border-science-red hover:text-science-red disabled:opacity-50"
+                >
+                  <Trash2 className="size-[13px]" />
+                  PDF 삭제
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  disabled={busy}
+                  className="inline-flex items-center gap-1 rounded border border-science-red/40 bg-science-red/5 px-3 py-1.5 text-[12px] font-bold text-science-red transition-colors hover:bg-science-red/10 disabled:opacity-50"
+                >
+                  <Upload className="size-[13px]" />
+                  {busy ? '올리는 중…' : 'PDF 업로드 (.pdf)'}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={save}
@@ -218,6 +253,12 @@ export function NewspaperDownload({ published }: { published: HomeNewspaper }) {
             </>
           )}
         </div>
+      )}
+
+      {staged && !error && (
+        <p className="mt-3 text-[12px] font-bold text-science-red">
+          {draft.pdf ? '새 PDF를 올렸습니다.' : 'PDF를 삭제했습니다.'} 저장을 눌러야 반영됩니다.
+        </p>
       )}
 
       {error && <p className="mt-3 text-[12px] font-bold text-science-red">{error}</p>}

@@ -15,7 +15,7 @@ import {
 import { sanitizeRich } from '@/lib/rich-text'
 import type { Category, Pathway, Video } from '@/lib/pathways'
 import { clearPathwayEdit, loadPathwayEdit, savePathwayEdit } from '@/lib/edits'
-import { uploadFile } from '@/lib/site-content'
+import { deleteUpload, uploadFile } from '@/lib/site-content'
 import { useAuth } from '@/components/auth-provider'
 
 // Only the sections the article actually publishes are editable, and only one
@@ -76,6 +76,11 @@ export function EditablePathway({
   // Saving reaches the server, so it can fail. Stay in edit mode when it does,
   // rather than showing changes that no other visitor would see.
   async function save() {
+    // Figures taken out of the gallery during this edit. Worked out before the
+    // save, dropped from storage only after it — a file removed ahead of a
+    // save that then fails would leave the published article pointing at
+    // nothing.
+    const dropped = (data.figures ?? []).filter((f) => !(draft.figures ?? []).includes(f))
     try {
       await savePathwayEdit(category.slug, pathway.slug, draft)
     } catch (e) {
@@ -85,10 +90,20 @@ export function EditablePathway({
     setData(draft)
     setHasEdits(true)
     setEditing(null)
+    dropped.forEach((src) => void deleteUpload(src))
   }
 
   async function resetToOriginal() {
     if (!window.confirm('이 페이지의 모든 수정을 취소하고 원본으로 되돌립니다.')) return
+    // Whatever was uploaded to this page and is not part of what it ships with
+    // has nothing pointing at it once the edit is thrown away.
+    const dropped = [data.slidesPdf, ...(data.figures ?? [])].filter(
+      (url): url is string =>
+        typeof url === 'string' &&
+        url !== '' &&
+        url !== pathway.slidesPdf &&
+        !(pathway.figures ?? []).includes(url),
+    )
     try {
       await clearPathwayEdit(category.slug, pathway.slug)
     } catch (e) {
@@ -98,6 +113,7 @@ export function EditablePathway({
     setData(pathway)
     setHasEdits(false)
     setEditing(null)
+    dropped.forEach((url) => void deleteUpload(url))
   }
 
   // The section being edited reads from `draft`; every other section from `data`.
@@ -139,11 +155,13 @@ export function EditablePathway({
   // one-section-at-a-time edit flow, so it saves on its own like the map edits.
   // The .pptx is what students download; the .pdf is what the inline viewer opens.
   async function setSlides(pdf: string) {
+    const replaced = data.slidesPdf
     const updated = { ...data, slidesPdf: pdf }
     setData(updated)
     try {
       await savePathwayEdit(category.slug, pathway.slug, updated)
       setHasEdits(true)
+      if (replaced && replaced !== pdf) void deleteUpload(replaced)
     } catch (e) {
       window.alert(
         e instanceof Error
@@ -157,6 +175,7 @@ export function EditablePathway({
   // value survives JSON and overrides the injected default on reload.
   async function deleteSlides() {
     if (!window.confirm('강의 슬라이드를 삭제할까요?')) return
+    const removed = data.slidesPdf
     const updated = { ...data, slidesPdf: '' }
     try {
       await savePathwayEdit(category.slug, pathway.slug, updated)
@@ -166,6 +185,7 @@ export function EditablePathway({
     }
     setData(updated)
     setHasEdits(true)
+    void deleteUpload(removed)
   }
 
   const overview = shown('overview')

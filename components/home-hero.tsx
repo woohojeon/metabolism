@@ -12,7 +12,7 @@ import {
   type BoxSize,
   type HomeHero,
 } from '@/lib/edits'
-import { uploadFile } from '@/lib/site-content'
+import { deleteUpload, uploadFile } from '@/lib/site-content'
 
 // The home page's opening feature: the photograph, the headline over it and the
 // paragraph beneath. The administrator edits all three in place, and what is
@@ -52,6 +52,7 @@ export function HomeHero({ published }: { published: HomeHero }) {
   // Saving reaches the server, so it can fail. Stay in edit mode when it does,
   // rather than showing a change no other visitor would see.
   async function save() {
+    const replaced = data.image
     try {
       await saveHomeHero(draft)
     } catch (e) {
@@ -61,10 +62,13 @@ export function HomeHero({ published }: { published: HomeHero }) {
     setData(draft)
     setHasEdits(true)
     setEditing(false)
+    // Only once the new picture is stored, and only if it is a different one.
+    if (replaced && replaced !== draft.image) void deleteUpload(replaced)
   }
 
   async function resetToOriginal() {
     if (!window.confirm('제목과 소개글, 배경 사진을 원래대로 되돌립니다.')) return
+    const replaced = data.image
     try {
       await clearHomeHero()
     } catch (e) {
@@ -75,6 +79,8 @@ export function HomeHero({ published }: { published: HomeHero }) {
     setDraft(published)
     setHasEdits(false)
     setEditing(false)
+    // The uploaded picture is unreferenced now the shipped one is back.
+    if (replaced && replaced !== published.image) void deleteUpload(replaced)
   }
 
   const shown = editing ? draft : data

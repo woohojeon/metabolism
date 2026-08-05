@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Upload, X } from 'lucide-react'
 import { useAuth } from '@/components/auth-provider'
 import { loadCategoryFigures, saveCategoryFigures } from '@/lib/edits'
-import { uploadFile } from '@/lib/site-content'
+import { deleteUpload, uploadFile } from '@/lib/site-content'
 
 // A supplementary image gallery shown on each category page. The published
 // images come from the category data (extracted from 'Figures_upload.pptx');
@@ -42,16 +42,20 @@ export function CategoryFigures({
   }, [isAdmin])
 
   // Shows the previous list again if the save was rejected, so what is on
-  // screen always matches what other visitors would load.
+  // screen always matches what other visitors would load. Reports whether the
+  // list was actually stored, so a caller only drops a file once nothing
+  // points at it.
   async function persist(next: string[]) {
     const previous = figures
     setFigures(next)
     setError(null)
     try {
       await saveCategoryFigures(categorySlug, next)
+      return true
     } catch (e) {
       setFigures(previous)
       setError(e instanceof Error ? e.message : '저장하지 못했습니다.')
+      return false
     }
   }
 
@@ -60,7 +64,10 @@ export function CategoryFigures({
   }
 
   function removeFigure(i: number) {
-    void persist(figures.filter((_, j) => j !== i))
+    const removed = figures[i]
+    void persist(figures.filter((_, j) => j !== i)).then((saved) => {
+      if (saved) void deleteUpload(removed)
+    })
   }
 
   // Nothing to show and no one to add anything: render nothing.
