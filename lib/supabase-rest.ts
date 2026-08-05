@@ -53,31 +53,87 @@ export class DuplicateUsernameError extends Error {
 const BUCKET = 'uploads'
 
 /**
- * Stores a file in the public `uploads` bucket and returns the URL it is served
- * from. Also service-role only, so callers must check the caller is an admin.
+ * Mints a one-off URL the browser can upload a single file to, and the public
+ * URL that file will then be served from.
+ *
+ * The bytes deliberately do not pass through this application. A serverless
+ * request body is capped — 4.5MB on the platform this deploys to — and a
+ * lecture PDF is past that on its own, a newspaper several times over, so a
+ * file relayed through a route handler is rejected before any of our code
+ * runs. Signing hands the browser a short-lived, single-path token and lets it
+ * talk to storage directly; the service key never leaves the server.
+ *
+ * Service-role only, so callers must check the caller is an admin.
  */
-export async function sbUpload(
+export async function sbSignedUpload(
   path: string,
-  body: ArrayBuffer,
-  contentType: string,
-): Promise<string> {
+): Promise<{ uploadUrl: string; publicUrl: string }> {
   if (!supabaseReady) throw new Error('Supabase is not configured')
 
-  const res = await fetch(`${URL_BASE}/storage/v1/object/${BUCKET}/${path}`, {
+  const res = await fetch(`${URL_BASE}/storage/v1/object/upload/sign/${BUCKET}/${path}`, {
     method: 'POST',
-    body,
     headers: {
       apikey: SERVICE_KEY!,
       Authorization: `Bearer ${SERVICE_KEY}`,
-      'Content-Type': contentType,
-      // Re-uploading the same path replaces the file rather than failing.
-      'x-upsert': 'true',
+      'Content-Type': 'application/json',
     },
+    body: '{}',
   })
 
   if (!res.ok) {
     throw new Error(`Supabase storage ${res.status}: ${(await res.text()).slice(0, 200)}`)
   }
 
-  return `${URL_BASE}/storage/v1/object/public/${BUCKET}/${path}`
+  // `url` comes back relative to /storage/v1 and carries the token.
+  const { url } = (await res.json()) as { url: string }
+  return {
+    uploadUrl: `${URL_BASE}/storage/v1${url}`,
+    publicUrl: `${URL_BASE}/storage/v1/object/public/${BUCKET}/${path}`,
+  }
+}
+
+/** The public URL an uploaded file is served from, once it is in the bucket. */
+export const PUBLIC_PREFIX = `/storage/v1/object/public/${BUCKET}/`
+
+/**
+ * The name a public URL refers to inside the uploads bucket, or null if the URL
+ * is not one this application put there.
+ *
+ * Everything a caller hands in is treated as untrusted. A path under /public —
+ * the shipped newspaper, the category photographs — belongs to the deployment
+ * and has to survive a delete, which here only ever means "nothing points at
+ * this any more".
+ */
+export function storagePathOf(url: string): string | null {
+  if (!supabaseReady) return null
+
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    return null
+  }
+
+  if (parsed.origin !== new URL(URL_BASE!).origin) return null
+  if (!parsed.pathname.startsWith(PUBLIC_PREFIX)) return null
+
+  const path = decodeURIComponent(parsed.pathname.slice(PUBLIC_PREFIX.length))
+  // Uploads are a single flat name. A separator or a dot-segment would mean
+  // the URL was built by someone else.
+  if (!path || path.includes('/') || path.includes('..')) return null
+  return path
+}
+
+/** Removes one file from the uploads bucket. Service-role only. */
+export async function sbDelete(path: string): Promise<void> {
+  if (!supabaseReady) throw new Error('Supabase is not configured')
+
+  const res = await fetch(`${URL_BASE}/storage/v1/object/${BUCKET}/${path}`, {
+    method: 'DELETE',
+    headers: { apikey: SERVICE_KEY!, Authorization: `Bearer ${SERVICE_KEY}` },
+  })
+
+  if (!res.ok) {
+    throw new Error(`Supabase storage ${res.status}: ${(await res.text()).slice(0, 200)}`)
+  }
 }

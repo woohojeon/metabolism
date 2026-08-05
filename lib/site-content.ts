@@ -88,6 +88,13 @@ export async function clearContent(key: string): Promise<void> {
  * Puts a picked file somewhere the other computers can read it and returns the
  * URL to store. Without Supabase it stays a data: URL, which is what the
  * gallery and slide controls used before.
+ *
+ * Two steps: ask the server where to put it, then put it there. The bytes go
+ * from this browser straight to storage and never through the application —
+ * a serverless request body is capped at 4.5MB, which a lecture PDF passes on
+ * its own and a newspaper passes several times over. Relayed through a route
+ * handler those uploads were refused by the platform before any of our code
+ * ran, which is why they failed with nothing useful to say.
  */
 export async function uploadFile(file: File): Promise<string> {
   if (!usingSupabase) {
@@ -99,10 +106,47 @@ export async function uploadFile(file: File): Promise<string> {
     })
   }
 
-  const form = new FormData()
-  form.append('file', file)
+  const res = await fetch('/api/upload', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename: file.name }),
+  })
+  if (!res.ok) throw await failure(res, '업로드를 준비하지 못했습니다.')
+  const { uploadUrl, publicUrl } = (await res.json()) as {
+    uploadUrl: string
+    publicUrl: string
+  }
 
-  const res = await fetch('/api/upload', { method: 'POST', body: form })
-  if (!res.ok) throw await failure(res, '업로드에 실패했습니다.')
-  return ((await res.json()) as { url: string }).url
+  const put = await fetch(uploadUrl, {
+    method: 'PUT',
+    body: file,
+    headers: { 'Content-Type': file.type || 'application/octet-stream' },
+  })
+  if (!put.ok) {
+    throw new Error(
+      put.status === 413
+        ? '파일이 스토리지 용량 한도를 넘습니다.'
+        : `업로드에 실패했습니다. (${put.status})`,
+    )
+  }
+
+  return publicUrl
+}
+
+/**
+ * Drops a file this site uploaded, now that nothing points at it.
+ *
+ * Call it *after* the page that referenced the file has been saved without it.
+ * Best effort by design: a file left in storage costs a little space, whereas
+ * throwing here would report a failure for a deletion the administrator has
+ * already been shown as done. Anything not in our bucket — the PDFs and
+ * photographs shipped under /public — is left alone by the server.
+ */
+export async function deleteUpload(url: string | null | undefined): Promise<void> {
+  if (!usingSupabase || !url) return
+  try {
+    await fetch(`/api/upload?url=${encodeURIComponent(url)}`, { method: 'DELETE' })
+  } catch {
+    // Offline, or the file was already gone. Neither is worth surfacing.
+  }
 }
