@@ -1,7 +1,7 @@
 'use client'
 
-import { Check, Pencil, RotateCcw, X } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Check, Pencil, RotateCcw, Subscript, Superscript, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@/components/auth-provider'
 import { sanitizeRich } from '@/lib/rich-text'
 import { type QuizKind, type QuizQuestion, quizSeed } from '@/lib/pathway-quiz'
@@ -179,6 +179,94 @@ export function PathwayQuiz({ path }: { path: string }) {
 // ---------------------------------------------------------------------------
 // Editing
 
+/** The words a field holds, with any formatting stripped back out. */
+function plainText(html: string) {
+  return html
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .trim()
+}
+
+/**
+ * A quiz field that takes formatting — the questions are about chemistry, so
+ * H₂O and H⁺ have to be typable rather than approximated.
+ *
+ * Seeded rather than controlled: writing the value back on every keystroke
+ * would rebuild the node and throw the caret to the start. It re-seeds when the
+ * value changes underneath it — deleting a choice shifts every later one up a
+ * place, and the box has to follow — but never while it has the caret.
+ */
+function RichField({
+  value,
+  onChange,
+  placeholder,
+  className,
+}: {
+  value: string
+  onChange: (html: string) => void
+  placeholder: string
+  className: string
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el || document.activeElement === el) return
+    const html = sanitizeRich(value)
+    if (el.innerHTML !== html) el.innerHTML = html
+  }, [value])
+
+  return (
+    <div
+      ref={ref}
+      contentEditable
+      suppressContentEditableWarning
+      role="textbox"
+      aria-multiline="true"
+      data-placeholder={placeholder}
+      className={className}
+      onInput={(e) => onChange(sanitizeRich(e.currentTarget.innerHTML))}
+      onPaste={(e) => {
+        // Plain text only, so markup pasted from elsewhere cannot get in.
+        e.preventDefault()
+        document.execCommand('insertText', false, e.clipboardData.getData('text/plain'))
+      }}
+    />
+  )
+}
+
+/**
+ * Applies to whichever field in this question holds the caret. execCommand is
+ * deprecated but remains the only API that formats a contentEditable selection
+ * without hand-rolling range surgery, and it is what the article and diagram
+ * editors already use.
+ */
+function FormatBar() {
+  const buttons = [
+    { cmd: 'superscript', icon: <Superscript className="size-[13px]" />, title: '위 첨자 — 이온 (H⁺)' },
+    { cmd: 'subscript', icon: <Subscript className="size-[13px]" />, title: '아래 첨자 — 화학식 (H₂O)' },
+  ]
+
+  return (
+    <div className="flex items-center gap-1">
+      {buttons.map((b) => (
+        <button
+          key={b.cmd}
+          type="button"
+          title={b.title}
+          // Keep the caret where it is — a focus change would collapse the
+          // selection before the command runs.
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => document.execCommand(b.cmd, false)}
+          className="flex size-7 items-center justify-center rounded border border-neutral-300 bg-white text-neutral-600 transition-colors hover:border-science-red hover:text-science-red"
+        >
+          {b.icon}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function blankQuestion(kind: QuizKind): QuizQuestion {
   return {
     id: `q${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
@@ -202,7 +290,9 @@ function normalize(draft: QuizQuestion[]): QuizQuestion[] | string {
   for (const [i, q] of draft.entries()) {
     const prompt = q.prompt.trim()
     const explanation = q.explanation.trim()
-    if (!prompt) return `${i + 1}번 문제의 지문을 입력해 주세요.`
+    // Emptiness is judged on the words, not the markup: a field left alone
+    // after its formatting was cleared can still hold a stray tag.
+    if (!plainText(prompt)) return `${i + 1}번 문제의 지문을 입력해 주세요.`
 
     if (q.kind === 'ox') {
       out.push({ ...q, prompt, explanation, choices: ['O', 'X'], answer: q.answer === 1 ? 1 : 0 })
@@ -211,7 +301,7 @@ function normalize(draft: QuizQuestion[]): QuizQuestion[] | string {
 
     const kept = q.choices
       .map((text, at) => ({ text: text.trim(), at }))
-      .filter((c) => c.text)
+      .filter((c) => plainText(c.text))
     if (kept.length < 2) return `${i + 1}번 문제의 보기를 두 개 이상 입력해 주세요.`
 
     const answer = kept.findIndex((c) => c.at === q.answer)
@@ -265,7 +355,8 @@ function QuizEditor({
             <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">
               문제 {i + 1}
             </span>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <FormatBar />
               {/* Question type — the editor's choice, per question. */}
               <div className="flex overflow-hidden rounded border border-neutral-300">
                 {(
@@ -298,12 +389,11 @@ function QuizEditor({
             </div>
           </div>
 
-          <textarea
+          <RichField
             value={q.prompt}
-            onChange={(e) => update(i, { prompt: e.target.value })}
-            rows={2}
+            onChange={(prompt) => update(i, { prompt })}
             placeholder="문제 지문"
-            className="mt-3 w-full resize-y rounded border border-neutral-300 px-3 py-2 text-[15px] leading-snug text-foreground focus:border-science-red focus:outline-none"
+            className="mt-3 min-h-16 w-full rounded border border-neutral-300 px-3 py-2 text-[15px] leading-snug text-foreground outline-none focus:border-science-red empty:before:text-neutral-400 empty:before:content-[attr(data-placeholder)]"
           />
 
           <p className="mt-3 text-[11px] font-bold uppercase tracking-wider text-neutral-500">
@@ -325,12 +415,11 @@ function QuizEditor({
                   <span className="text-[14px] font-bold text-foreground">{choice}</span>
                 ) : (
                   <>
-                    <input
-                      type="text"
+                    <RichField
                       value={choice}
-                      onChange={(e) => setChoice(i, at, e.target.value)}
+                      onChange={(text) => setChoice(i, at, text)}
                       placeholder={`보기 ${at + 1}`}
-                      className="w-full rounded border border-neutral-300 px-2.5 py-1.5 text-[14px] text-foreground focus:border-science-red focus:outline-none"
+                      className="w-full rounded border border-neutral-300 px-2.5 py-1.5 text-[14px] text-foreground outline-none focus:border-science-red empty:before:text-neutral-400 empty:before:content-[attr(data-placeholder)]"
                     />
                     {q.choices.length > 2 && (
                       <button
@@ -361,12 +450,11 @@ function QuizEditor({
           <p className="mt-3 text-[11px] font-bold uppercase tracking-wider text-neutral-500">
             해설 — 답을 고른 뒤 보여집니다
           </p>
-          <textarea
+          <RichField
             value={q.explanation}
-            onChange={(e) => update(i, { explanation: e.target.value })}
-            rows={2}
+            onChange={(explanation) => update(i, { explanation })}
             placeholder="왜 그 답인지 설명"
-            className="mt-2 w-full resize-y rounded border border-neutral-300 px-3 py-2 text-[14px] leading-relaxed text-neutral-700 focus:border-science-red focus:outline-none"
+            className="mt-2 min-h-16 w-full rounded border border-neutral-300 px-3 py-2 text-[14px] leading-relaxed text-neutral-700 outline-none focus:border-science-red empty:before:text-neutral-400 empty:before:content-[attr(data-placeholder)]"
           />
         </div>
       ))}
@@ -435,18 +523,20 @@ function QuizPlayer({
   // server and the client different orders and break hydration.
   const [deck, setDeck] = useState<Shuffled[] | null>(null)
   const [index, setIndex] = useState(0)
-  const [picked, setPicked] = useState<number | null>(null)
-  const [missed, setMissed] = useState<string[]>([])
+  // One answer per question rather than one for wherever the reader happens to
+  // be: they can leave a question unanswered, come back to it, and find their
+  // earlier pick still there.
+  const [picks, setPicks] = useState<(number | null)[]>([])
   const [done, setDone] = useState(false)
   const [best, setBest] = useState<number | null>(null)
 
   const storageKey = `${PROGRESS_PREFIX}${user ?? 'guest'}:${progressKey}`
 
   const start = useCallback((pool: QuizQuestion[]) => {
-    setDeck(prepare(pool))
+    const next = prepare(pool)
+    setDeck(next)
+    setPicks(new Array(next.length).fill(null))
     setIndex(0)
-    setPicked(null)
-    setMissed([])
     setDone(false)
   }, [])
 
@@ -467,28 +557,36 @@ function QuizPlayer({
   }, [storageKey, questions.length])
 
   const current = deck?.[index]
+  const picked = picks[index] ?? null
   const revealed = picked !== null
   const correct = revealed && current ? picked === current.answer : false
+  const answered = picks.filter((p) => p !== null).length
 
   function choose(i: number) {
+    // Answered once: coming back to a question shows what was picked and why,
+    // not another go at it.
     if (revealed || !current) return
-    setPicked(i)
-    if (i !== current.answer) setMissed((m) => [...m, current.question.id])
+    setPicks((p) => p.map((v, j) => (j === index ? i : v)))
   }
 
-  const next = useCallback(() => {
-    if (!deck || picked === null) return
-    if (index + 1 < deck.length) {
-      setIndex(index + 1)
-      setPicked(null)
-      return
-    }
+  // Moving on does not depend on having answered. A question you cannot do yet
+  // is one to come back to, and being held on it only invites a guess.
+  const goTo = useCallback(
+    (to: number) => {
+      if (!deck) return
+      setIndex(Math.min(Math.max(to, 0), deck.length - 1))
+    },
+    [deck],
+  )
+
+  const finish = useCallback(() => {
+    if (!deck) return
     setDone(true)
 
     // Only a full run is a score worth keeping; a "wrong ones only" retry is a
     // shorter deck and would otherwise look like a lower best.
     if (deck.length !== questions.length) return
-    const score = deck.length - missed.length
+    const score = deck.reduce((n, q, i) => n + (picks[i] === q.answer ? 1 : 0), 0)
     try {
       const top = Math.max(score, best ?? 0)
       window.localStorage.setItem(
@@ -499,11 +597,13 @@ function QuizPlayer({
     } catch {
       // ignore storage access errors
     }
-  }, [best, deck, index, missed.length, picked, questions.length, storageKey])
+  }, [best, deck, picks, questions.length, storageKey])
 
-  const missedQuestions = useMemo(
-    () => questions.filter((q) => missed.includes(q.id)),
-    [missed, questions],
+  // Everything not yet got right — wrong answers and questions left blank
+  // alike, since both are still to be learned.
+  const unsolved = useMemo(
+    () => (deck ?? []).filter((q, i) => picks[i] !== q.answer).map((q) => q.question),
+    [deck, picks],
   )
 
   if (!deck || !current) {
@@ -511,7 +611,9 @@ function QuizPlayer({
   }
 
   if (done) {
-    const score = deck.length - missed.length
+    const score = deck.reduce((n, q, i) => n + (picks[i] === q.answer ? 1 : 0), 0)
+    const skipped = picks.filter((p) => p === null).length
+    const wrong = deck.length - score - skipped
     return (
       <div className="mt-4 rounded border border-neutral-200 bg-white p-6 text-center sm:p-8">
         <p className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">Result</p>
@@ -522,7 +624,12 @@ function QuizPlayer({
         <p className="mt-3 text-[14px] text-neutral-700">
           {score === deck.length
             ? '전부 맞혔습니다. 해당과정의 뼈대는 잡혔습니다.'
-            : `${missed.length}문제를 놓쳤습니다. 틀린 문제만 다시 풀어 보세요.`}
+            : [
+                wrong > 0 ? `${wrong}문제를 틀렸습니다` : null,
+                skipped > 0 ? `${skipped}문제는 답하지 않았습니다` : null,
+              ]
+                .filter(Boolean)
+                .join(', ') + '. 남은 문제만 다시 풀어 보세요.'}
         </p>
         {best !== null && (
           <p className="mt-1 text-[12px] text-neutral-400">
@@ -531,13 +638,13 @@ function QuizPlayer({
         )}
 
         <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-          {missedQuestions.length > 0 && (
+          {unsolved.length > 0 && (
             <button
               type="button"
-              onClick={() => start(missedQuestions)}
+              onClick={() => start(unsolved)}
               className="rounded bg-science-red px-4 py-2 text-[13px] font-bold text-white transition-opacity hover:opacity-90"
             >
-              틀린 문제만 다시 풀기 ({missedQuestions.length})
+              남은 문제만 다시 풀기 ({unsolved.length})
             </button>
           )}
           <button
@@ -552,8 +659,6 @@ function QuizPlayer({
       </div>
     )
   }
-
-  const answered = index + (revealed ? 1 : 0)
 
   return (
     <div className="mt-4 rounded border border-neutral-200 bg-white p-5 sm:p-6">
@@ -603,7 +708,10 @@ function QuizPlayer({
               <span className="mt-px flex size-5 shrink-0 items-center justify-center rounded-full border border-current text-[11px] font-bold text-neutral-500">
                 {i + 1}
               </span>
-              <span className="flex-1 text-[14px] leading-snug text-foreground">{choice}</span>
+              <span
+                className="flex-1 text-[14px] leading-snug text-foreground"
+                dangerouslySetInnerHTML={{ __html: sanitizeRich(choice) }}
+              />
               {revealed && isAnswer && (
                 <Check className="mt-0.5 size-[16px] shrink-0 text-science-red" />
               )}
@@ -631,20 +739,31 @@ function QuizPlayer({
               {correct ? '정답' : '오답'}
             </p>
             {current.question.explanation && (
-              <p className="mt-1.5 text-[14px] leading-relaxed text-neutral-700">
-                {current.question.explanation}
-              </p>
+              <p
+                className="mt-1.5 text-[14px] leading-relaxed text-neutral-700"
+                dangerouslySetInnerHTML={{
+                  __html: sanitizeRich(current.question.explanation),
+                }}
+              />
             )}
           </div>
         )}
       </div>
 
-      <div className="mt-4 flex justify-end">
+      {/* Both ways, whether or not this one has been answered. */}
+      <div className="mt-4 flex items-center justify-between gap-2">
         <button
           type="button"
-          onClick={next}
-          disabled={!revealed}
-          className="rounded bg-science-red px-4 py-2 text-[13px] font-bold text-white transition-opacity hover:opacity-90 disabled:bg-neutral-200 disabled:text-neutral-400"
+          onClick={() => goTo(index - 1)}
+          disabled={index === 0}
+          className="rounded border border-neutral-300 px-4 py-2 text-[13px] font-bold text-neutral-600 transition-colors hover:border-science-red hover:text-science-red disabled:border-neutral-200 disabled:text-neutral-300 disabled:hover:border-neutral-200 disabled:hover:text-neutral-300"
+        >
+          ← 이전 문제
+        </button>
+        <button
+          type="button"
+          onClick={() => (index + 1 === deck.length ? finish() : goTo(index + 1))}
+          className="rounded bg-science-red px-4 py-2 text-[13px] font-bold text-white transition-opacity hover:opacity-90"
         >
           {index + 1 === deck.length ? '결과 보기' : '다음 문제 →'}
         </button>
