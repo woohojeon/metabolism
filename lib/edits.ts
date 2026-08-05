@@ -71,6 +71,14 @@ export type HomeHero = {
   image: string
   titleBox?: BoxSize
   bodyBox?: BoxSize
+  /**
+   * Type size, as a multiplier on what the design already works out for the
+   * width of the screen — not a fixed number of pixels. A size chosen on a
+   * desktop would otherwise be that same size on a phone, where the headline
+   * is held to one line and would run off the side of it.
+   */
+  titleScale?: number
+  bodyScale?: number
 }
 
 const HERO_KEY = 'metabolism-home-hero'

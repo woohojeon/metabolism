@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Pencil, Upload } from 'lucide-react'
+import { ChevronDown, ChevronUp, Pencil, Upload } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { CategoryLabel, MetaDate } from '@/components/article-bits'
 import { useAuth } from '@/components/auth-provider'
@@ -119,8 +119,10 @@ export function HomeHero({ published }: { published: HomeHero }) {
           onChange={(v) => setDraft((d) => ({ ...d, title: v }))}
           size={shown.titleBox}
           onResize={(box) => setDraft((d) => ({ ...d, titleBox: box }))}
+          scale={shown.titleScale}
+          onScale={(titleScale) => setDraft((d) => ({ ...d, titleScale }))}
           placeholder="제목"
-          className={`mt-2 whitespace-pre-wrap text-[clamp(1.25rem,5vw,1.75rem)] font-extrabold leading-tight text-white sm:text-[clamp(0.75rem,3.1vw,2.5rem)] ${
+          className={`mt-2 whitespace-pre-wrap text-[calc(clamp(1.25rem,5vw,1.75rem)*var(--type-scale,1))] font-extrabold leading-tight text-white sm:text-[calc(clamp(0.75rem,3.1vw,2.5rem)*var(--type-scale,1))] ${
             shown.titleBox?.width ? 'sm:whitespace-pre-wrap' : 'sm:whitespace-pre'
           }`}
         />
@@ -130,10 +132,12 @@ export function HomeHero({ published }: { published: HomeHero }) {
           onChange={(v) => setDraft((d) => ({ ...d, standfirst: v }))}
           size={shown.bodyBox}
           onResize={(box) => setDraft((d) => ({ ...d, bodyBox: box }))}
+          scale={shown.bodyScale}
+          onScale={(bodyScale) => setDraft((d) => ({ ...d, bodyScale }))}
           placeholder="소개글"
           // Until a width is chosen the standfirst keeps its reading-width cap.
           boxClassName={shown.bodyBox?.width ? '' : 'max-w-2xl'}
-          className="mt-3 whitespace-pre-wrap text-[13px] leading-snug text-white/85 sm:text-[15px]"
+          className="mt-3 whitespace-pre-wrap text-[calc(13px*var(--type-scale,1))] leading-snug text-white/85 sm:text-[calc(15px*var(--type-scale,1))]"
         />
       </div>
     </div>
@@ -162,12 +166,19 @@ export function HomeHero({ published }: { published: HomeHero }) {
                 onPick={(url) => setDraft((d) => ({ ...d, image: url }))}
                 onError={setError}
               />
-              {/* A drag that went wrong has to be undoable without reloading. */}
-              {(draft.titleBox || draft.bodyBox) && (
+              {/* A drag or a step that went wrong has to be undoable without
+                  reloading. Both the boxes and the type go back at once. */}
+              {(draft.titleBox || draft.bodyBox || draft.titleScale || draft.bodyScale) && (
                 <button
                   type="button"
                   onClick={() =>
-                    setDraft((d) => ({ ...d, titleBox: undefined, bodyBox: undefined }))
+                    setDraft((d) => ({
+                      ...d,
+                      titleBox: undefined,
+                      bodyBox: undefined,
+                      titleScale: undefined,
+                      bodyScale: undefined,
+                    }))
                   }
                   className="rounded border border-white/60 bg-black/40 px-2.5 py-1 text-[12px] font-bold text-white transition-colors hover:bg-black/60"
                 >
@@ -282,6 +293,11 @@ function contentWidth(el: HTMLElement) {
  * back on every keystroke would rebuild the node and throw the caret to the
  * start.
  */
+/** How far the type may be taken from the size the design chose for it. */
+const SCALE_MIN = 0.5
+const SCALE_MAX = 2.5
+const SCALE_STEP = 0.1
+
 function InlineText({
   value,
   onChange,
@@ -290,6 +306,8 @@ function InlineText({
   placeholder,
   size,
   onResize,
+  scale = 1,
+  onScale,
   boxClassName,
   as: Tag = 'p',
 }: {
@@ -300,6 +318,9 @@ function InlineText({
   placeholder?: string
   size?: BoxSize
   onResize?: (size: BoxSize) => void
+  /** A multiplier on the type size, not a replacement for it. */
+  scale?: number
+  onScale?: (scale: number) => void
   /** Sizing rules — they belong to the box, so a drag starts from them. */
   boxClassName?: string
   as?: 'p' | 'h1'
@@ -326,8 +347,16 @@ function InlineText({
   // it instead of spilling out.
   const sizing = {
     '--box-w': size?.width ? `${size.width}%` : '100%',
+    // Multiplied into the type size by the classes above, so the design's own
+    // response to the width of the screen is kept and only stretched.
+    '--type-scale': scale,
     minHeight: size?.height ? `${size.height}px` : undefined,
   } as React.CSSProperties
+
+  const step = (by: number) =>
+    onScale?.(
+      Math.round(Math.min(SCALE_MAX, Math.max(SCALE_MIN, scale + by)) * 100) / 100,
+    )
 
   const box = `w-full sm:w-[var(--box-w)] ${boxClassName ?? ''}`
 
@@ -391,9 +420,55 @@ function InlineText({
       <span
         role="presentation"
         onPointerDown={startResize}
-        title="크기 조절"
+        title="상자 크기 조절"
         className="absolute -bottom-1.5 -right-1.5 size-3.5 cursor-se-resize touch-none rounded-sm border border-white/70 bg-white/80 shadow-sm"
       />
+
+      {/* The box is dragged from its corner; the type is stepped from here.
+          They are separate things — a wider box rewraps the same words, a
+          larger scale sets them in bigger type. */}
+      {onScale && (
+        <div className="absolute -top-3 left-0 z-10 flex items-center gap-0.5 rounded bg-black/70 px-1 py-0.5 shadow-sm">
+          <ScaleButton onClick={() => step(-SCALE_STEP)} disabled={scale <= SCALE_MIN} title="글씨 작게">
+            <span className="text-[10px]">A</span>
+            <ChevronDown className="size-3" />
+          </ScaleButton>
+          <span className="min-w-[2.4rem] text-center text-[10px] font-bold tabular-nums text-white/80">
+            {Math.round(scale * 100)}%
+          </span>
+          <ScaleButton onClick={() => step(SCALE_STEP)} disabled={scale >= SCALE_MAX} title="글씨 크게">
+            <span className="text-[13px]">A</span>
+            <ChevronUp className="size-3" />
+          </ScaleButton>
+        </div>
+      )}
     </div>
+  )
+}
+
+function ScaleButton({
+  onClick,
+  disabled,
+  title,
+  children,
+}: {
+  onClick: () => void
+  disabled: boolean
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      disabled={disabled}
+      // Keep the caret in the text — a focus change would end the edit the
+      // administrator is in the middle of.
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onClick}
+      className="flex h-5 items-center gap-px rounded px-1 font-bold leading-none text-white transition-colors hover:bg-white/20 disabled:opacity-40 disabled:hover:bg-transparent"
+    >
+      {children}
+    </button>
   )
 }
