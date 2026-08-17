@@ -197,23 +197,61 @@ export async function PATCH(request: Request) {
   }
 }
 
+/** A PostgREST `in.(...)` list, with every value quoted so none can be read
+ *  as syntax. */
+function inList(values: string[]) {
+  return `(${values.map((v) => `"${v.replace(/["\\]/g, '\\$&')}"`).join(',')})`
+}
+
 export async function DELETE(request: Request) {
   const denied = await denyUnlessAdmin()
   if (denied) return denied
 
-  const id = new URL(request.url).searchParams.get('id')
-  if (!id) return NextResponse.json({ error: 'id 가 필요합니다.' }, { status: 400 })
+  const params = new URL(request.url).searchParams
+  // `ids` is the roster's multi-select; `id` stays for a single row's button.
+  const many = params.get('ids')
+  const ids = many
+    ? many.split(',').map((s) => s.trim()).filter(Boolean)
+    : [params.get('id') ?? ''].filter(Boolean)
+
+  if (ids.length === 0) {
+    return NextResponse.json({ error: 'id 가 필요합니다.' }, { status: 400 })
+  }
 
   try {
-    if ((await usernameOf(id)) === ADMIN_USERNAME) {
-      return NextResponse.json(
-        { error: '관리자 계정은 삭제할 수 없습니다.' },
-        { status: 400 },
-      )
+    if (!many) {
+      if ((await usernameOf(ids[0])) === ADMIN_USERNAME) {
+        return NextResponse.json(
+          { error: '관리자 계정은 삭제할 수 없습니다.' },
+          { status: 400 },
+        )
+      }
+      await sb(`students?id=eq.${encodeURIComponent(ids[0])}`, { method: 'DELETE' })
+      return NextResponse.json({ ok: true, deleted: 1 })
     }
 
-    await sb(`students?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' })
-    return NextResponse.json({ ok: true })
+    // The administrator is dropped from the selection rather than refused, so
+    // a select-all followed by delete removes the class and leaves the account
+    // that has to stay behind to run this page.
+    let deleted = 0
+    let keptAdmin = false
+    for (let i = 0; i < ids.length; i += BATCH) {
+      const chunk = ids.slice(i, i + BATCH)
+      const rows = (await sb(
+        `students?id=in.${encodeURIComponent(inList(chunk))}&select=id,username`,
+      )) as { id: string; username: string }[]
+
+      const removable = rows.filter((r) => r.username !== ADMIN_USERNAME).map((r) => r.id)
+      if (removable.length !== rows.length) keptAdmin = true
+      if (removable.length === 0) continue
+
+      await sb(`students?id=in.${encodeURIComponent(inList(removable))}`, {
+        method: 'DELETE',
+      })
+      deleted += removable.length
+    }
+
+    return NextResponse.json({ ok: true, deleted, keptAdmin })
   } catch (e) {
     return oops(e)
   }

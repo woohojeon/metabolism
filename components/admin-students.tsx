@@ -24,6 +24,7 @@ import {
   createStudent,
   createStudents,
   deleteStudent,
+  deleteStudents,
   listStudents,
   updateStudent,
   type Student,
@@ -69,6 +70,15 @@ export function AdminStudents() {
   const [preview, setPreview] = useState<Preview | null>(null)
   const [reading, setReading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [anchor, setAnchor] = useState<string | null>(null)
+  const [confirmBulk, setConfirmBulk] = useState(false)
+  const [dragging, setDragging] = useState(false)
+  // Where the drag under way began, whether it is selecting or clearing, and
+  // what was selected before it started. Held in a ref so that dragging over a
+  // hundred rows does not re-render for the bookkeeping itself.
+  const drag = useRef<{ index: number; mode: boolean; base: Set<string> } | null>(null)
 
   // `silent` re-reads the roster after an edit without flashing the skeleton
   // rows, so saving a single field does not blank the whole table.
@@ -133,6 +143,142 @@ export function AdminStudents() {
       await createStudent(newDraft)
       setNewDraft(EMPTY)
       setAdding(false)
+    })
+
+  // --------------------------------------------------------------- selection
+
+  // The administrator cannot be deleted, so it is never part of a selection —
+  // including a select-all, which would otherwise arm a button that then had
+  // to refuse half of what it was asked to do.
+  const selectable = useMemo(
+    () => shown.filter((r) => r.username !== ADMIN_USERNAME),
+    [shown],
+  )
+
+  const allSelected =
+    selectable.length > 0 && selectable.every((r) => selected.has(r.id))
+
+  // A row deleted elsewhere must not linger in the selection and re-arm the
+  // delete button, so the set is pruned whenever the roster is re-read.
+  useEffect(() => {
+    setSelected((prev) => {
+      if (prev.size === 0) return prev
+      const live = new Set(rows.map((r) => r.id))
+      const next = new Set<string>()
+      prev.forEach((id) => live.has(id) && next.add(id))
+      return next.size === prev.size ? prev : next
+    })
+  }, [rows])
+
+  // A drag can end anywhere — over another row, off the table, outside the
+  // window — so the release is listened for on the window rather than a row.
+  useEffect(() => {
+    if (!dragging) return
+    const stop = () => {
+      drag.current = null
+      setDragging(false)
+    }
+    window.addEventListener('mouseup', stop)
+    return () => window.removeEventListener('mouseup', stop)
+  }, [dragging])
+
+  const setOne = useCallback((id: string, on: boolean) => {
+    setSelected((prev) => {
+      if (prev.has(id) === on) return prev
+      const next = new Set(prev)
+      if (on) next.add(id)
+      else next.delete(id)
+      return next
+    })
+  }, [])
+
+  /** Shift-click: everything between the last row clicked and this one. */
+  const setRange = (toId: string, on: boolean) => {
+    const from = selectable.findIndex((r) => r.id === anchor)
+    const to = selectable.findIndex((r) => r.id === toId)
+    if (from < 0 || to < 0) return setOne(toId, on)
+
+    const [lo, hi] = from < to ? [from, to] : [to, from]
+    setSelected((prev) => {
+      const next = new Set(prev)
+      for (let i = lo; i <= hi; i++) {
+        if (on) next.add(selectable[i].id)
+        else next.delete(selectable[i].id)
+      }
+      return next
+    })
+  }
+
+  function onRowMouseDown(e: React.MouseEvent, row: Student) {
+    if (e.button !== 0 || row.username === ADMIN_USERNAME) return
+    // Stops the browser from painting a text selection across the rows the
+    // pointer is about to be dragged over.
+    e.preventDefault()
+
+    const on = !selected.has(row.id)
+    if (e.shiftKey && anchor) {
+      setRange(row.id, on)
+    } else {
+      setOne(row.id, on)
+      setAnchor(row.id)
+    }
+
+    drag.current = {
+      index: selectable.findIndex((r) => r.id === row.id),
+      mode: on,
+      base: new Set(selected),
+    }
+    setDragging(true)
+    setConfirmBulk(false)
+  }
+
+  /**
+   * Paints every row between where the drag began and the row now under the
+   * pointer.
+   *
+   * Deliberately not "toggle the row we just entered": a pointer moved quickly
+   * jumps several rows between two mouse events, and the rows it flew over
+   * never report being entered. Filling the range from the start of the drag
+   * covers them anyway, and lets a drag that doubles back shrink again, since
+   * the selection is rebuilt each time from what was there before.
+   */
+  function onRowMouseEnter(row: Student) {
+    const from = drag.current
+    if (!dragging || !from || row.username === ADMIN_USERNAME) return
+
+    const to = selectable.findIndex((r) => r.id === row.id)
+    if (to < 0 || from.index < 0) return
+
+    const [lo, hi] = from.index < to ? [from.index, to] : [to, from.index]
+    const next = new Set(from.base)
+    for (let i = lo; i <= hi; i++) {
+      if (from.mode) next.add(selectable[i].id)
+      else next.delete(selectable[i].id)
+    }
+    setSelected(next)
+  }
+
+  const toggleAll = () => {
+    setConfirmBulk(false)
+    setSelected((prev) => {
+      const next = new Set(prev)
+      // Only the rows currently in view are affected, so a search narrows what
+      // select-all means rather than reaching rows the admin cannot see.
+      selectable.forEach((r) => (allSelected ? next.delete(r.id) : next.add(r.id)))
+      return next
+    })
+  }
+
+  const deleteSelected = () =>
+    run(async () => {
+      const result = await deleteStudents([...selected])
+      setSelected(new Set())
+      setAnchor(null)
+      setConfirmBulk(false)
+      setNotice(
+        `${result.deleted}명을 삭제했습니다.` +
+          (result.keptAdmin ? ' 관리자 계정은 그대로 두었습니다.' : ''),
+      )
     })
 
   // ------------------------------------------------------------ roster import
@@ -457,11 +603,69 @@ export function AdminStudents() {
         </section>
       )}
 
+      {/* What is selected, and what can be done with it */}
+      {selected.size > 0 && (
+        <div className="mt-6 flex flex-wrap items-center gap-3 border-l-4 border-foreground bg-panel px-4 py-3">
+          <p className="text-[14px] font-bold text-foreground">
+            {selected.size}명 선택됨
+          </p>
+          <div className="ml-auto flex items-center gap-2">
+            {confirmBulk ? (
+              <>
+                <RowButton onClick={deleteSelected} disabled={busy} tone="danger">
+                  <Trash2 className="size-4" />
+                  {busy ? '삭제 중…' : `${selected.size}명 삭제 확인`}
+                </RowButton>
+                <RowButton onClick={() => setConfirmBulk(false)} disabled={busy}>
+                  <X className="size-4" />
+                </RowButton>
+              </>
+            ) : (
+              <>
+                <RowButton onClick={() => setConfirmBulk(true)} disabled={busy}>
+                  <Trash2 className="size-4" />
+                  선택 삭제
+                </RowButton>
+                <RowButton
+                  onClick={() => {
+                    setSelected(new Set())
+                    setAnchor(null)
+                  }}
+                  disabled={busy}
+                >
+                  선택 해제
+                </RowButton>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Roster */}
-      <div className="mt-6 overflow-x-auto">
-        <table className="w-full min-w-[720px] border-collapse text-left">
+      <div
+        className={`mt-6 overflow-x-auto ${dragging ? 'select-none' : ''}`}
+      >
+        <table className="w-full min-w-[760px] border-collapse text-left">
           <thead>
             <tr className="border-b-2 border-foreground">
+              <th className="w-9 pb-2">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  // Some but not all — shown as a dash rather than a tick, so
+                  // the header does not claim the whole page is selected.
+                  ref={(el) => {
+                    if (el) {
+                      el.indeterminate = !allSelected && selectable.some((r) => selected.has(r.id))
+                    }
+                  }}
+                  onChange={toggleAll}
+                  disabled={selectable.length === 0}
+                  aria-label="전체 선택"
+                  title="전체 선택"
+                  className="size-4 cursor-pointer accent-science-red align-middle disabled:cursor-default disabled:opacity-40"
+                />
+              </th>
               <th className={`w-10 pb-2 pr-3 ${LABEL}`}>#</th>
               <th className={`pb-2 pr-3 ${LABEL}`}>Name</th>
               <th className={`pb-2 pr-3 ${LABEL}`}>ID</th>
@@ -474,6 +678,7 @@ export function AdminStudents() {
             {/* New account */}
             {adding && (
               <tr className="border-b border-neutral-200 bg-panel/60">
+                <td />
                 <td className="py-3 pr-3 text-[13px] font-bold text-science-red">
                   New
                 </td>
@@ -531,7 +736,7 @@ export function AdminStudents() {
             {loading &&
               Array.from({ length: 4 }).map((_, i) => (
                 <tr key={i} className="border-b border-neutral-200">
-                  <td colSpan={5} className="py-4">
+                  <td colSpan={6} className="py-4">
                     <div className="h-4 w-full animate-pulse rounded bg-panel" />
                   </td>
                 </tr>
@@ -542,11 +747,41 @@ export function AdminStudents() {
                 const isTheAdmin = row.username === ADMIN_USERNAME
                 const editing = editingId === row.id
 
+                const picked = selected.has(row.id)
+
                 return (
                   <tr
                     key={row.id}
-                    className="border-b border-neutral-200 align-middle transition-colors hover:bg-panel/50"
+                    onMouseEnter={() => onRowMouseEnter(row)}
+                    className={`border-b border-neutral-200 align-middle transition-colors ${
+                      picked ? 'bg-panel' : 'hover:bg-panel/50'
+                    }`}
                   >
+                    <td
+                      onMouseDown={(e) => onRowMouseDown(e, row)}
+                      className={isTheAdmin ? '' : 'cursor-pointer'}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={picked}
+                        disabled={isTheAdmin}
+                        aria-label={`${row.name} 선택`}
+                        title={
+                          isTheAdmin ? '관리자 계정은 삭제할 수 없습니다.' : undefined
+                        }
+                        // The row's own mousedown drives the box, so that a
+                        // drag and a plain click cannot both toggle it. Only a
+                        // keyboard press (which arrives with no click count)
+                        // is handled here.
+                        onChange={() => {}}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          if (e.detail === 0) setOne(row.id, !picked)
+                        }}
+                        className="size-4 cursor-pointer accent-science-red align-middle disabled:cursor-default disabled:opacity-30"
+                      />
+                    </td>
+
                     <td className="py-3 pr-3 text-[13px] font-semibold text-neutral-400">
                       {i + 1}
                     </td>
@@ -672,7 +907,7 @@ export function AdminStudents() {
 
             {!loading && shown.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-14 text-center">
+                <td colSpan={6} className="py-14 text-center">
                   <p className="text-[15px] font-semibold text-foreground">
                     {rows.length === 0
                       ? '등록된 계정이 없습니다.'

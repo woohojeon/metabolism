@@ -258,3 +258,41 @@ export async function deleteStudent(id: string): Promise<void> {
   })
   if (!res.ok) throw await fail(res, '계정을 삭제하지 못했습니다.')
 }
+
+/** What a multi-row delete actually removed. */
+export type DeleteResult = {
+  deleted: number
+  /** True when the administrator was in the selection and was left in place. */
+  keptAdmin: boolean
+}
+
+/**
+ * Removes several accounts in one request.
+ *
+ * The administrator is skipped rather than refused, so selecting every row and
+ * deleting clears the class without locking anyone out of this page.
+ */
+export async function deleteStudents(ids: string[]): Promise<DeleteResult> {
+  if (ids.length === 0) return { deleted: 0, keptAdmin: false }
+
+  if (!usingSupabase) {
+    const rows = readLocal()
+    const doomed = new Set(ids)
+    const keptAdmin = rows.some(
+      (s) => doomed.has(s.id) && s.username === ADMIN_USERNAME,
+    )
+    const left = rows.filter(
+      (s) => !doomed.has(s.id) || s.username === ADMIN_USERNAME,
+    )
+    writeLocal(left)
+    return { deleted: rows.length - left.length, keptAdmin }
+  }
+
+  const res = await fetch(`/api/students?ids=${encodeURIComponent(ids.join(','))}`, {
+    method: 'DELETE',
+  })
+  if (!res.ok) throw await fail(res, '선택한 계정을 삭제하지 못했습니다.')
+
+  const body = (await res.json()) as { deleted?: number; keptAdmin?: boolean }
+  return { deleted: body.deleted ?? 0, keptAdmin: body.keptAdmin === true }
+}
