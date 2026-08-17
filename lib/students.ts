@@ -175,6 +175,54 @@ export async function createStudent(
   return (await res.json()) as Student
 }
 
+/** What a roster import did, so the page can report it rather than guess. */
+export type BulkResult = {
+  /** Accounts written by this import. */
+  added: number
+  /** Usernames that were already on the roster and were left as they were. */
+  skipped: string[]
+}
+
+/**
+ * Adds a whole roster at once.
+ *
+ * Existing usernames are skipped rather than treated as an error: uploading a
+ * revised class list is the normal way this is used, and only the students who
+ * joined since the last upload should be created.
+ */
+export async function createStudents(
+  input: Omit<Student, 'id'>[],
+): Promise<BulkResult> {
+  if (!usingSupabase) {
+    const rows = readLocal()
+    const taken = new Set(rows.map((s) => s.username))
+    const skipped: string[] = []
+    const fresh: Student[] = []
+
+    input.forEach((row, i) => {
+      if (row.username === ADMIN_USERNAME || taken.has(row.username)) {
+        skipped.push(row.username)
+        return
+      }
+      taken.add(row.username)
+      fresh.push({ ...row, id: `local-${Date.now()}-${i}` })
+    })
+
+    writeLocal([...rows, ...fresh])
+    return { added: fresh.length, skipped }
+  }
+
+  const res = await fetch('/api/students', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ students: input }),
+  })
+  if (!res.ok) throw await fail(res, '명단을 등록하지 못했습니다.')
+
+  const body = (await res.json()) as { added: Student[]; skipped: string[] }
+  return { added: body.added.length, skipped: body.skipped }
+}
+
 export async function updateStudent(
   id: string,
   patch: Partial<Omit<Student, 'id'>>,

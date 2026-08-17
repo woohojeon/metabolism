@@ -1,14 +1,28 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { Check, Eye, EyeOff, Lock, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
+import {
+  Check,
+  Eye,
+  EyeOff,
+  FileSpreadsheet,
+  Lock,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  Upload,
+  X,
+} from 'lucide-react'
 import { useAuth } from './auth-provider'
 import { CategoryLabel } from './article-bits'
 import { LoginDialog } from './login-dialog'
+import { readRosterFile, type RosterRow } from '@/lib/roster-file'
 import {
   ADMIN_USERNAME,
   createStudent,
+  createStudents,
   deleteStudent,
   listStudents,
   updateStudent,
@@ -24,12 +38,23 @@ type Draft = { name: string; username: string; password: string }
 
 const EMPTY: Draft = { name: '', username: '', password: '' }
 
+/** A roster that has been read but not yet written to the table. */
+type Preview = {
+  filename: string
+  rows: RosterRow[]
+  /** Rows the file held that had no usable 학번 or 성명. */
+  skipped: number
+  /** 학번 that appeared twice in the file itself. */
+  duplicates: string[]
+}
+
 export function AdminStudents() {
   const { user, isAdmin, ready, logout } = useAuth()
 
   const [rows, setRows] = useState<Student[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [query, setQuery] = useState('')
   const [reveal, setReveal] = useState(false)
   const [loginOpen, setLoginOpen] = useState(false)
@@ -40,6 +65,10 @@ export function AdminStudents() {
   const [newDraft, setNewDraft] = useState<Draft>(EMPTY)
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  const [preview, setPreview] = useState<Preview | null>(null)
+  const [reading, setReading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   // `silent` re-reads the roster after an edit without flashing the skeleton
   // rows, so saving a single field does not blank the whole table.
@@ -74,6 +103,8 @@ export function AdminStudents() {
   async function run(action: () => Promise<void>) {
     setBusy(true)
     setError('')
+    // Cleared before the action, so an import's own summary still survives.
+    setNotice('')
     try {
       await action()
       await refresh(true)
@@ -102,6 +133,58 @@ export function AdminStudents() {
       await createStudent(newDraft)
       setNewDraft(EMPTY)
       setAdding(false)
+    })
+
+  // ------------------------------------------------------------ roster import
+
+  const taken = useMemo(() => new Set(rows.map((r) => r.username)), [rows])
+
+  // Only the students not already on the roster are written, so re-uploading a
+  // revised list after add/drop adds the newcomers and touches nobody else.
+  const incoming = useMemo(
+    () => (preview ? preview.rows.filter((r) => !taken.has(r.studentId)) : []),
+    [preview, taken],
+  )
+
+  async function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    // Clear the input so choosing the same file twice still fires a change.
+    e.target.value = ''
+    if (!file) return
+
+    setReading(true)
+    setError('')
+    setNotice('')
+    setPreview(null)
+    try {
+      const parsed = await readRosterFile(file)
+      setPreview({ filename: file.name, ...parsed })
+      setAdding(false)
+      setEditingId(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '파일을 읽지 못했습니다.')
+    } finally {
+      setReading(false)
+    }
+  }
+
+  const importRoster = () =>
+    run(async () => {
+      // 학번 is both the username and the password, as asked.
+      const result = await createStudents(
+        incoming.map((r) => ({
+          name: r.name,
+          username: r.studentId,
+          password: r.studentId,
+        })),
+      )
+      setPreview(null)
+      setNotice(
+        `${result.added}명을 등록했습니다.` +
+          (result.skipped.length
+            ? ` ${result.skipped.length}명은 이미 등록되어 있어 건너뛰었습니다.`
+            : ''),
+      )
     })
 
   // ------------------------------------------------------------------- gating
@@ -221,6 +304,23 @@ export function AdminStudents() {
           {reveal ? 'Hide passwords' : 'Show passwords'}
         </button>
 
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".xls,.xlsx,.csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
+          onChange={onPickFile}
+          className="hidden"
+        />
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={reading || busy}
+          className="flex h-11 items-center gap-2 rounded-full border border-neutral-300 px-4 text-[11px] font-bold uppercase tracking-wider text-neutral-600 transition-colors hover:border-foreground hover:text-foreground disabled:opacity-50"
+        >
+          <Upload className="size-4" />
+          {reading ? '읽는 중…' : '엑셀 명단 업로드'}
+        </button>
+
         <button
           type="button"
           onClick={() => {
@@ -235,6 +335,12 @@ export function AdminStudents() {
         </button>
       </div>
 
+      {notice && (
+        <div className="mt-5 border-l-4 border-foreground bg-panel px-4 py-3">
+          <p className="text-[14px] font-medium text-foreground">{notice}</p>
+        </div>
+      )}
+
       {error && (
         <div className="mt-5 border-l-4 border-science-red bg-panel px-4 py-3">
           <p className="text-[14px] font-medium text-foreground">{error}</p>
@@ -248,6 +354,107 @@ export function AdminStudents() {
             </button>
           )}
         </div>
+      )}
+
+      {/* What the uploaded file holds, before anything is written */}
+      {preview && (
+        <section className="mt-6 border border-neutral-300">
+          <header className="flex items-start gap-3 border-b border-neutral-200 bg-panel/60 px-5 py-4">
+            <FileSpreadsheet className="mt-0.5 size-5 shrink-0 text-science-red" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[15px] font-bold text-foreground">
+                {preview.filename}
+              </p>
+              <p className="mt-0.5 text-[13px] leading-relaxed text-neutral-600">
+                학번을 아이디와 비밀번호로, 성명을 이름으로 등록합니다.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPreview(null)}
+              aria-label="가져오기 취소"
+              className="shrink-0 text-neutral-400 transition-colors hover:text-foreground"
+            >
+              <X className="size-5" />
+            </button>
+          </header>
+
+          <dl className="grid grid-cols-3 gap-px bg-neutral-200">
+            {[
+              { label: 'In file', value: preview.rows.length },
+              { label: 'To add', value: incoming.length },
+              { label: 'Already listed', value: preview.rows.length - incoming.length },
+            ].map((s) => (
+              <div key={s.label} className="bg-background px-5 py-3">
+                <dt className={LABEL}>{s.label}</dt>
+                <dd className="mt-0.5 text-xl font-extrabold text-foreground">
+                  {s.value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+
+          {(preview.skipped > 0 || preview.duplicates.length > 0) && (
+            <p className="border-t border-neutral-200 bg-panel px-5 py-2.5 text-[13px] text-neutral-600">
+              {preview.skipped > 0 && `학번이나 이름이 빈 줄 ${preview.skipped}개는 건너뜁니다. `}
+              {preview.duplicates.length > 0 &&
+                `파일 안에서 중복된 학번 ${preview.duplicates.length}개는 한 번만 등록합니다.`}
+            </p>
+          )}
+
+          <div className="max-h-[320px] overflow-y-auto border-t border-neutral-200">
+            {incoming.length === 0 ? (
+              <p className="px-5 py-10 text-center text-[14px] text-neutral-500">
+                이 파일의 학생은 모두 이미 등록되어 있습니다.
+              </p>
+            ) : (
+              <table className="w-full border-collapse text-left">
+                <thead className="sticky top-0 bg-background">
+                  <tr className="border-b border-neutral-200">
+                    <th className={`w-12 px-5 py-2 ${LABEL}`}>#</th>
+                    <th className={`py-2 pr-3 ${LABEL}`}>Name</th>
+                    <th className={`py-2 pr-5 ${LABEL}`}>ID / Password</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {incoming.map((r, i) => (
+                    <tr key={r.studentId} className="border-b border-neutral-100">
+                      <td className="px-5 py-2 text-[13px] font-semibold text-neutral-400">
+                        {i + 1}
+                      </td>
+                      <td className="py-2 pr-3 text-[14px] font-semibold text-foreground">
+                        {r.name}
+                      </td>
+                      <td className="py-2 pr-5 font-mono text-[13px] text-neutral-700">
+                        {r.studentId}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <footer className="flex flex-wrap items-center gap-2 border-t border-neutral-200 bg-panel/60 px-5 py-4">
+            <button
+              type="button"
+              onClick={importRoster}
+              disabled={busy || incoming.length === 0}
+              className="flex h-10 items-center gap-2 rounded-full bg-science-red px-5 text-[11px] font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              <Check className="size-4" />
+              {busy ? '등록 중…' : `${incoming.length}명 등록`}
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreview(null)}
+              disabled={busy}
+              className="flex h-10 items-center rounded-full border border-neutral-300 px-5 text-[11px] font-bold uppercase tracking-wider text-neutral-600 transition-colors hover:border-foreground hover:text-foreground disabled:opacity-50"
+            >
+              취소
+            </button>
+          </footer>
+        </section>
       )}
 
       {/* Roster */}
