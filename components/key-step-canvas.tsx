@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   ArrowLeftRight,
   ArrowRight,
@@ -57,6 +57,12 @@ export function boardHeight(canvas: Canvas) {
 const SNAP_DISTANCE = 6
 const BULLET = '· '
 
+// Fit the board before the browser paints, not after: measuring in a plain
+// useEffect lets the 900px board show at full size for one frame and then snap
+// down to fit, which reads as a jump on the way into a page. useLayoutEffect
+// runs before paint; it has no meaning on the server, so fall back there.
+const useFitEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect
+
 // ---------------------------------------------------------------------------
 
 export function KeyStepCanvas({
@@ -84,12 +90,17 @@ export function KeyStepCanvas({
   const [guideY, setGuideY] = useState<number | null>(null)
   const scaleRef = useRef(1)
   const boardRef = useRef<HTMLDivElement>(null)
+  // The board is drawn at 900px and scaled down once its column is measured.
+  // Until that first fit it is held invisible so its full width never flashes;
+  // the parent reserves the right height through its aspect-ratio, so revealing
+  // the fitted board shifts nothing.
+  const [fitted, setFitted] = useState(false)
 
   // Draw the fixed coordinate space at whatever width it has been given, and
   // keep it there as the column or the window changes. The observer is torn
   // down on unmount — the zoom view mounts a second board and closing it must
   // not leave one behind.
-  useEffect(() => {
+  useFitEffect(() => {
     const el = boardRef.current
     const parent = el?.parentElement
     if (!el || !parent) return
@@ -100,6 +111,7 @@ export function KeyStepCanvas({
       el.style.transform = `scale(${s})`
     }
     fit()
+    setFitted(true)
 
     const ro = new ResizeObserver(fit)
     ro.observe(parent)
@@ -359,7 +371,7 @@ export function KeyStepCanvas({
           <div
             ref={boardRef}
             className="absolute left-0 top-0 origin-top-left"
-            style={{ width: CANVAS_WIDTH, height }}
+            style={{ width: CANVAS_WIDTH, height, opacity: fitted ? 1 : 0 }}
           >
             {/* Arrows sit under the text boxes */}
             <svg
@@ -571,7 +583,12 @@ export function KeyStepZoom({ canvas, onClose }: { canvas: Canvas; onClose: () =
         닫기
       </button>
 
-      <div className="flex min-h-full items-center justify-center">
+      {/* `w-max` lets this row grow to the full diagram width so the overlay
+          scrolls — and swipes on a phone pan — across the whole of it; without
+          it a diagram wider than the screen has its left and right edges
+          centred out of reach. `min-w-full` keeps it at least a screenful so a
+          diagram narrower than the window still sits centred. */}
+      <div className="flex min-h-full w-max min-w-full items-center justify-center">
         <div style={{ width }} onClick={(e) => e.stopPropagation()}>
           <KeyStepCanvas
             canvas={canvas}

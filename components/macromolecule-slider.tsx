@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -86,6 +86,30 @@ export function MacromoleculeSlider() {
     setIndex((prev) => Math.min(Math.max(prev + dir, 0), maxIndex))
   }
 
+  // Swipe to move the strip on a touch screen, where there is no arrow to
+  // click under a thumb. The start point is remembered on touchstart and the
+  // travel measured on touchend; a mostly-vertical drag is the page scrolling
+  // past and is left alone, and a short nudge is ignored so a tap on a card
+  // still opens it. Nothing is preventDefault-ed, so vertical scrolling through
+  // the strip keeps working.
+  const swipeStart = useRef<{ x: number; y: number } | null>(null)
+  const SWIPE_MIN = 40
+
+  const onSwipeStart = (e: React.TouchEvent) => {
+    const t = e.touches[0]
+    swipeStart.current = { x: t.clientX, y: t.clientY }
+  }
+  const onSwipeEnd = (e: React.TouchEvent) => {
+    const start = swipeStart.current
+    swipeStart.current = null
+    if (!start) return
+    const t = e.changedTouches[0]
+    const dx = t.clientX - start.x
+    const dy = t.clientY - start.y
+    if (Math.abs(dx) < SWIPE_MIN || Math.abs(dx) <= Math.abs(dy)) return
+    go(dx < 0 ? 1 : -1) // drag left reveals the next slide, drag right the previous
+  }
+
   const totalPathways = categories.reduce((sum, c) => sum + c.pathways.length, 0)
   const cardBasis = 100 / visible
   const canPrev = index > 0
@@ -144,7 +168,11 @@ export function MacromoleculeSlider() {
         </div>
       </div>
 
-      <div className="mt-6 overflow-hidden px-3">
+      <div
+        className="mt-6 overflow-hidden px-3"
+        onTouchStart={onSwipeStart}
+        onTouchEnd={onSwipeEnd}
+      >
         <div
           className="-mx-3 flex transition-transform duration-500 ease-out motion-reduce:transition-none"
           style={{ transform: `translateX(-${index * cardBasis}%)` }}

@@ -70,7 +70,7 @@ export type HomeHero = {
   bodyScale?: number
 }
 
-const HERO_KEY = 'metabolism-home-hero'
+export const HERO_KEY = 'metabolism-home-hero'
 
 export function loadHomeHero(): Promise<HomeHero | null> {
   return loadContent<HomeHero>(HERO_KEY)
@@ -90,7 +90,7 @@ export type HomeNewspaper = {
   pdf: string
 }
 
-const NEWSPAPER_KEY = 'metabolism-home-newspaper'
+export const NEWSPAPER_KEY = 'metabolism-home-newspaper'
 
 export function loadHomeNewspaper(): Promise<HomeNewspaper | null> {
   return loadContent<HomeNewspaper>(NEWSPAPER_KEY)
@@ -115,7 +115,7 @@ export type InstructorProfile = {
   office: string
 }
 
-const INSTRUCTOR_KEY = 'metabolism-instructor'
+export const INSTRUCTOR_KEY = 'metabolism-instructor'
 
 export function loadInstructorProfile(): Promise<InstructorProfile | null> {
   return loadContent<InstructorProfile>(INSTRUCTOR_KEY)
