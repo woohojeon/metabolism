@@ -28,3 +28,36 @@ export async function loadContentServer<T>(key: string): Promise<T | null> {
     return null
   }
 }
+
+// A cacheable read of one site-content document, for pages that want to stay on
+// the CDN (ISR) rather than render on every request.
+//
+// `sb()` above is deliberately no-store — it is shared with the students table
+// and with writes, which must never be cached — and a no-store fetch inside a
+// page forces that page to render dynamically. This reads `site_content` alone
+// (public article edits, shown to everyone) with a revalidate window instead,
+// so the page it feeds can be prerendered and refreshed every `revalidate`
+// seconds. An edit therefore appears to other visitors within that window, not
+// instantly; the editing administrator still sees it at once from local state.
+export async function loadContentCached<T>(
+  key: string,
+  revalidate: number,
+): Promise<T | null> {
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!base || !serviceKey) return null
+  try {
+    const res = await fetch(
+      `${base}/rest/v1/site_content?key=eq.${encodeURIComponent(key)}&select=value&limit=1`,
+      {
+        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
+        next: { revalidate },
+      },
+    )
+    if (!res.ok) return null
+    const rows = (await res.json()) as Row<T>[]
+    return rows?.[0]?.value ?? null
+  } catch {
+    return null
+  }
+}

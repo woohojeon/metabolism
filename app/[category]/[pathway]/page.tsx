@@ -6,7 +6,7 @@ import { EditablePathway } from '@/components/editable-pathway'
 import { PathwayQuiz } from '@/components/pathway-quiz'
 import { categories, getPathway } from '@/lib/pathways'
 import type { Pathway } from '@/lib/pathways'
-import { loadContentServer } from '@/lib/site-content-server'
+import { loadContentCached } from '@/lib/site-content-server'
 
 export function generateStaticParams() {
   return categories.flatMap((c) =>
@@ -14,12 +14,12 @@ export function generateStaticParams() {
   )
 }
 
-// Render per request, not at build: the saved article is read from Supabase in
-// the body below, and it must be the copy that exists when a visitor opens the
-// page — not whatever was in the database (or missing from it) at build time.
-// Without this the page is prerendered static and the server read is frozen at
-// build, so slides uploaded later flash in on the client instead.
-export const dynamic = 'force-dynamic'
+// Serve from the CDN and refresh in the background every minute (ISR), rather
+// than rendering on every request. The saved article is read below with the
+// same window, so an edit reaches other visitors within a minute — fast pages
+// in exchange for that small delay. The card no longer flashes in either way,
+// since the read happens on the server before the HTML is sent.
+export const revalidate = 60
 
 export async function generateMetadata({
   params,
@@ -50,8 +50,9 @@ export default async function PathwayPage({
   // section) uploaded after build renders in the first paint instead of
   // flashing in — and shifting the layout — once the client fetches it. The key
   // and merge mirror loadPathwayEdit / EditablePathway in lib/edits.ts.
-  const saved = await loadContentServer<Pathway>(
+  const saved = await loadContentCached<Pathway>(
     `metabolism-edit:${category.slug}/${pathSlug}`,
+    60,
   )
   const pathway = saved ? { ...result.pathway, ...saved } : result.pathway
 

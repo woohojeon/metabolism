@@ -6,7 +6,7 @@ import { EditablePathway } from '@/components/editable-pathway'
 import { PathwayQuiz } from '@/components/pathway-quiz'
 import { categories, getChild } from '@/lib/pathways'
 import type { Pathway } from '@/lib/pathways'
-import { loadContentServer } from '@/lib/site-content-server'
+import { loadContentCached } from '@/lib/site-content-server'
 
 export function generateStaticParams() {
   return categories.flatMap((c) =>
@@ -20,9 +20,9 @@ export function generateStaticParams() {
   )
 }
 
-// Render per request so the server read of the saved article reflects what a
-// visitor opens, not the build-time snapshot — see the parent pathway page.
-export const dynamic = 'force-dynamic'
+// CDN-served with a one-minute background refresh (ISR) — see the parent
+// pathway page.
+export const revalidate = 60
 
 export async function generateMetadata({
   params,
@@ -51,8 +51,9 @@ export default async function ChildPage({
   // Server-load the saved article so slides and other edits render in the first
   // paint instead of flashing in on the client. EditablePathway keys a child's
   // edit by category + child slug, so match that here.
-  const saved = await loadContentServer<Pathway>(
+  const saved = await loadContentCached<Pathway>(
     `metabolism-edit:${category.slug}/${childSlug}`,
+    60,
   )
   const child = saved ? { ...result.child, ...saved } : result.child
 
