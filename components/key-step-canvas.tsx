@@ -355,9 +355,19 @@ export function KeyStepCanvas({
       {/* The board is scaled to whatever width it is given. On a phone that
           would be a scale of about 0.4, putting the labels at 6px — so it is
           held to a floor and the narrow screen scrolls sideways across it
-          instead of shrinking it past reading size. */}
+          instead of shrinking it past reading size.
+
+          That sideways scroll belongs here only in the article, where this is
+          the sole scroller. In the zoom view the board is handed an exact width
+          and fills this wrapper edge to edge, so there is nothing here to
+          scroll; keeping it a scroll container only lets it swallow the swipe
+          and — with `overscroll-x-contain` — stop it chaining out to the
+          overlay that actually pans, snapping the diagram back to its left
+          edge. So drop the scroller when a boardWidth is set. */}
       <div
-        className={`w-full overflow-x-auto overscroll-x-contain rounded border bg-white ${editing ? 'border-neutral-300' : 'border-neutral-200'}`}
+        className={`w-full rounded border bg-white ${
+          boardWidth ? '' : 'overflow-x-auto overscroll-x-contain'
+        } ${editing ? 'border-neutral-300' : 'border-neutral-200'}`}
       >
         <div
           className={`relative ${boardWidth ? '' : 'w-full min-w-[620px]'}`}

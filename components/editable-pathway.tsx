@@ -179,6 +179,13 @@ export function EditablePathway({
   const hasVideos = Boolean(data.videos?.length) || isAdmin
   const hasFigures = Boolean(data.figures?.length) || isAdmin
 
+  // The lecture-slide card only claims the top-right grid slot when there is
+  // actually a card to show — a published PDF, or the administrator's upload
+  // control. When it is absent the sidebar must not stay pinned to the second
+  // row: that would leave an empty slot above it and drop "More in …" far down
+  // the page for a signed-out or student viewer of a slide-less pathway.
+  const showSlides = Boolean(data.slidesPdf) || isAdmin
+
   const sectionProps = (section: Section) => ({
     canEdit: isAdmin && editing === null,
     editing: editing === section,
@@ -229,7 +236,7 @@ export function EditablePathway({
             enough down to look like they are not there at all. On `lg` the
             explicit placement puts them back at the top of the sidebar
             column, above the rest of it. */}
-        {(data.slidesPdf || isAdmin) && (
+        {showSlides && (
           <div className="lg:col-span-4 lg:col-start-9 lg:row-start-1">
             <SlideViewer
               pdf={data.slidesPdf}
@@ -474,7 +481,11 @@ export function EditablePathway({
         </article>
 
         {/* Sidebar */}
-        <aside className="lg:col-span-4 lg:col-start-9 lg:row-start-2">
+        <aside
+          className={`lg:col-span-4 lg:col-start-9 ${
+            showSlides ? 'lg:row-start-2' : 'lg:row-start-1'
+          }`}
+        >
           <div className="sticky top-20 space-y-6">
             <div className="relative aspect-[4/3] w-full overflow-hidden bg-neutral-100">
               <Image
