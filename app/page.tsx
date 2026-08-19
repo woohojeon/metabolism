@@ -24,10 +24,6 @@ function Masthead() {
       <Link href="/" aria-label="Veterinary Biochemistry home">
         <Wordmark className="text-balance text-center text-[34px] leading-tight text-foreground sm:text-[48px]" />
       </Link>
-      <p className="mt-3 text-[11px] uppercase tracking-wide text-neutral-500">
-        The Metabolic Map <span className="mx-1 text-neutral-300">|</span> Vol. 1{' '}
-        <span className="mx-1 text-neutral-300">|</span> 2026 Edition
-      </p>
     </div>
   )
 }

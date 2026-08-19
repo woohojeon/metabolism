@@ -5,12 +5,21 @@ import { SiteFooter } from '@/components/site-footer'
 import { EditablePathway } from '@/components/editable-pathway'
 import { PathwayQuiz } from '@/components/pathway-quiz'
 import { categories, getPathway } from '@/lib/pathways'
+import type { Pathway } from '@/lib/pathways'
+import { loadContentServer } from '@/lib/site-content-server'
 
 export function generateStaticParams() {
   return categories.flatMap((c) =>
     c.pathways.map((p) => ({ category: c.slug, pathway: p.slug })),
   )
 }
+
+// Render per request, not at build: the saved article is read from Supabase in
+// the body below, and it must be the copy that exists when a visitor opens the
+// page — not whatever was in the database (or missing from it) at build time.
+// Without this the page is prerendered static and the server read is frozen at
+// build, so slides uploaded later flash in on the client instead.
+export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({
   params,
@@ -34,7 +43,17 @@ export default async function PathwayPage({
   const { category: catSlug, pathway: pathSlug } = await params
   const result = getPathway(catSlug, pathSlug)
   if (!result || !result.category) notFound()
-  const { category, pathway } = result
+  const { category } = result
+
+  // Read whatever the administrator last saved for this article on the server,
+  // the same way the home hero and newspaper do, so a slide card (or any edited
+  // section) uploaded after build renders in the first paint instead of
+  // flashing in — and shifting the layout — once the client fetches it. The key
+  // and merge mirror loadPathwayEdit / EditablePathway in lib/edits.ts.
+  const saved = await loadContentServer<Pathway>(
+    `metabolism-edit:${category.slug}/${pathSlug}`,
+  )
+  const pathway = saved ? { ...result.pathway, ...saved } : result.pathway
 
   const index = category.pathways.findIndex((p) => p.slug === pathway.slug)
   const prev = category.pathways[index - 1]
