@@ -103,7 +103,6 @@ export function Board() {
   const [replyingId, setReplyingId] = useState<string | null>(null)
   const [replyDraft, setReplyDraft] = useState('')
   const [replyImages, setReplyImages] = useState<string[]>([])
-  const [confirmId, setConfirmId] = useState<string | null>(null)
   const [lightbox, setLightbox] = useState<string | null>(null)
   const [page, setPage] = useState(1)
 
@@ -136,7 +135,6 @@ export function Board() {
     setEditingId(null)
     setReplyingId(null)
     setReplyImages([])
-    setConfirmId(null)
     setPage(1)
     void refresh()
   }, [ready, user, isAdmin, refresh])
@@ -203,9 +201,16 @@ export function Board() {
       const gone = [...(target?.images ?? []), ...(target?.replyImages ?? [])]
       await deletePost(id)
       setPosts((prev) => prev.filter((p) => p.id !== id))
-      setConfirmId(null)
       gone.forEach((src) => void deleteUpload(src))
     })
+
+  // A single red button that asks before it acts, rather than swapping the row
+  // into a confirm/cancel pair. Matches the slide-delete flow elsewhere.
+  const confirmRemove = (id: string) => {
+    if (window.confirm('이 글을 정말 삭제하시겠습니까?\n삭제한 글은 되돌릴 수 없습니다.')) {
+      void remove(id)
+    }
+  }
 
   const unanswered = useMemo(
     () => posts.filter((p) => !p.reply).length,
@@ -227,7 +232,6 @@ export function Board() {
     setOpenId(null)
     setEditingId(null)
     setReplyingId(null)
-    setConfirmId(null)
     setPage(next)
   }
 
@@ -278,7 +282,7 @@ export function Board() {
               setDraft(EMPTY)
               setError('')
             }}
-            className="ml-auto flex h-10 items-center gap-2 rounded-md bg-science-red px-5 text-[11px] font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90"
+            className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-science-red px-5 text-[11px] font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90 sm:ml-auto sm:w-auto"
           >
             <Plus className="size-4" />
             {board.action}
@@ -423,27 +427,16 @@ export function Board() {
                     setOpenId(open ? null : post.id)
                     setEditingId(null)
                     setReplyingId(null)
-                    setConfirmId(null)
                   }}
                   aria-expanded={open}
                   className="group flex w-full items-start gap-3 px-3 py-5 text-left transition-colors hover:bg-panel/40"
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-2">
-                      {isPrivate && (
-                        <StatusBadge answered={Boolean(post.reply)} />
-                      )}
-                      <span className="min-w-0 truncate text-[17px] font-bold leading-snug text-foreground transition-colors group-hover:text-science-red">
-                        {post.title}
-                      </span>
-                      {post.images.length > 0 && (
-                        <Paperclip
-                          className="size-3.5 shrink-0 text-neutral-400"
-                          aria-label={`이미지 ${post.images.length}장`}
-                        />
-                      )}
+                    <span className="line-clamp-2 break-words text-[16px] font-bold leading-snug text-foreground transition-colors group-hover:text-science-red sm:text-[17px]">
+                      {post.title}
                     </span>
                     <span className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                      {isPrivate && <StatusBadge answered={Boolean(post.reply)} />}
                       <span className={LABEL}>{formatPostDate(post.createdAt)}</span>
                       {post.author && (
                         <span className="text-[11px] font-semibold text-neutral-500">
@@ -453,6 +446,15 @@ export function Board() {
                               {post.authorUsername}
                             </span>
                           )}
+                        </span>
+                      )}
+                      {post.images.length > 0 && (
+                        <span
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-neutral-400"
+                          aria-label={`이미지 ${post.images.length}장`}
+                        >
+                          <Paperclip className="size-3.5" aria-hidden />
+                          {post.images.length}
                         </span>
                       )}
                     </span>
@@ -550,7 +552,7 @@ export function Board() {
                           onChange={setReplyImages}
                           disabled={busy}
                         />
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <PillButton
                             onClick={() => saveReply(post.id)}
                             disabled={busy}
@@ -601,30 +603,16 @@ export function Board() {
                             수정
                           </PillButton>
                         )}
-                        {(post.mine || isAdmin) &&
-                          (confirmId === post.id ? (
-                            <>
-                              <PillButton
-                                onClick={() => remove(post.id)}
-                                disabled={busy}
-                                tone="danger"
-                              >
-                                <Trash2 className="size-4" />
-                                {busy ? '삭제 중…' : '삭제 확인'}
-                              </PillButton>
-                              <PillButton
-                                onClick={() => setConfirmId(null)}
-                                disabled={busy}
-                              >
-                                <X className="size-4" />
-                              </PillButton>
-                            </>
-                          ) : (
-                            <PillButton onClick={() => setConfirmId(post.id)}>
-                              <Trash2 className="size-4" />
-                              삭제
-                            </PillButton>
-                          ))}
+                        {(post.mine || isAdmin) && (
+                          <PillButton
+                            onClick={() => confirmRemove(post.id)}
+                            disabled={busy}
+                            tone="danger"
+                          >
+                            <Trash2 className="size-4" />
+                            {busy ? '삭제 중…' : '삭제'}
+                          </PillButton>
+                        )}
                       </div>
                     )}
                   </div>
@@ -692,7 +680,7 @@ function Pager({
   return (
     <nav
       aria-label="페이지"
-      className="mt-8 flex items-center justify-center gap-1.5"
+      className="mt-8 flex flex-wrap items-center justify-center gap-1.5"
     >
       <button
         type="button"
@@ -819,7 +807,7 @@ function RichField({
           e.preventDefault()
           document.execCommand('insertText', false, e.clipboardData.getData('text/plain'))
         }}
-        className={`${FIELD} min-h-[8rem] cursor-text leading-relaxed [&_sub]:align-sub [&_sup]:align-super empty:before:text-neutral-400 empty:before:content-[attr(data-placeholder)]`}
+        className={`${FIELD} min-h-[8rem] cursor-text break-words leading-relaxed [&_sub]:align-sub [&_sup]:align-super empty:before:text-neutral-400 empty:before:content-[attr(data-placeholder)]`}
       />
     </div>
   )
@@ -830,7 +818,7 @@ function RichField({
 function RichView({ html, className = '' }: { html: string; className?: string }) {
   return (
     <div
-      className={`text-[15px] leading-relaxed text-neutral-700 [&_sub]:align-sub [&_sup]:align-super ${className}`}
+      className={`break-words text-[15px] leading-relaxed text-neutral-700 [&_sub]:align-sub [&_sup]:align-super ${className}`}
       dangerouslySetInnerHTML={{ __html: sanitizeRich(html) }}
     />
   )
