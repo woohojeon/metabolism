@@ -3,9 +3,11 @@ import { notFound } from 'next/navigation'
 import { SiteHeader } from '@/components/site-header'
 import { SiteFooter } from '@/components/site-footer'
 import { EditablePathway } from '@/components/editable-pathway'
+import { NewspaperDownload } from '@/components/newspaper-download'
 import { PathwayQuiz } from '@/components/pathway-quiz'
-import { categories, getChild } from '@/lib/pathways'
+import { NEWSPAPER_PATH, categories, getChild } from '@/lib/pathways'
 import type { Pathway } from '@/lib/pathways'
+import { NEWSPAPER_KEY, publishedNewspaper, type Newspaper } from '@/lib/edits'
 import { loadContentCached } from '@/lib/site-content-server'
 
 export function generateStaticParams() {
@@ -61,6 +63,20 @@ export default async function ChildPage({
   const prev = pathway.children[index - 1]
   const next = pathway.children[index + 1]
 
+  const path = `${category.slug}/${pathway.slug}/${child.slug}`
+
+  // The newspaper page carries the download card. Its saved title and PDF are
+  // read here for the same reason the article above is — rendered from the
+  // published defaults and swapped on the client, the card would show last
+  // year's newspaper for a moment before flipping to the one that was uploaded.
+  const newspaper: Newspaper | null =
+    path === NEWSPAPER_PATH
+      ? {
+          ...publishedNewspaper,
+          ...(await loadContentCached<Partial<Newspaper>>(NEWSPAPER_KEY, 60)),
+        }
+      : null
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <SiteHeader />
@@ -88,11 +104,14 @@ export default async function ChildPage({
         {/* Editable article body */}
         <EditablePathway category={category} pathway={child} />
 
-        {/* Self-check quiz, on the same 12-column grid the article uses so it
-            lines up with the body column rather than the full page width. */}
+        {/* The newspaper card and the self-check quiz, on the same 12-column
+            grid the article uses so they line up with the body column rather
+            than the full page width. The card sits directly under the Overview
+            that introduces it. */}
         <div className="grid grid-cols-1 gap-10 lg:grid-cols-12">
           <div className="lg:col-span-8">
-            <PathwayQuiz path={`${category.slug}/${pathway.slug}/${child.slug}`} />
+            {newspaper && <NewspaperDownload published={newspaper} />}
+            <PathwayQuiz path={path} />
           </div>
         </div>
 

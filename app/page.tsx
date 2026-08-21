@@ -5,15 +5,12 @@ import { ArrowLink } from '@/components/article-bits'
 import { HomeHero } from '@/components/home-hero'
 import { InstructorTeaser } from '@/components/instructor-teaser'
 import { MacromoleculeSlider } from '@/components/macromolecule-slider'
-import { NewspaperDownload } from '@/components/newspaper-download'
 import { Wordmark } from '@/components/wordmark'
 import { instructor, publishedProfile } from '@/lib/instructor'
 import {
   HERO_KEY,
   INSTRUCTOR_KEY,
-  NEWSPAPER_KEY,
   type HomeHero as HomeHeroData,
-  type HomeNewspaper,
   type InstructorProfile,
 } from '@/lib/edits'
 import { loadContentServer } from '@/lib/site-content-server'
@@ -39,34 +36,24 @@ const publishedHero = {
   image: '/images/chemistry.jpg',
 }
 
-// The newspaper download card's defaults. The administrator (jbnu) can edit the
-// title and replace the PDF in place; components/newspaper-download.tsx loads
-// whatever was saved over these.
-const publishedNewspaper = {
-  title: '수의생화학신문 (2026년)',
-  pdf: '/downloads/vet-biochem-news-2026.pdf',
-}
-
-// Render on demand rather than at build time, so the hero, newspaper and
-// instructor cards always come out already holding the administrator's latest
-// saved edit. Prerendered once, the page would be frozen at whatever was saved
-// at build time and the client swap — the old flash — would come back.
+// Render on demand rather than at build time, so the hero and the instructor
+// card always come out already holding the administrator's latest saved edit.
+// Prerendered once, the page would be frozen at whatever was saved at build
+// time and the client swap — the old flash — would come back.
 export const dynamic = 'force-dynamic'
 
 export default async function HomePage() {
-  // Read whatever the administrator last saved before rendering, so the hero,
-  // the newspaper card and the instructor teaser open already showing it. Left
-  // to the client fetch alone (each component still runs it), the published
-  // defaults below would paint first and then flip to the saved copy — the
-  // flash the page used to have. Merged over the defaults so a partial save,
-  // or none at all, still fills every field.
-  const [savedHero, savedNewspaper, savedProfile] = await Promise.all([
+  // Read whatever the administrator last saved before rendering, so the hero
+  // and the instructor teaser open already showing it. Left to the client fetch
+  // alone (each component still runs it), the published defaults below would
+  // paint first and then flip to the saved copy — the flash the page used to
+  // have. Merged over the defaults so a partial save, or none at all, still
+  // fills every field.
+  const [savedHero, savedProfile] = await Promise.all([
     loadContentServer<Partial<HomeHeroData>>(HERO_KEY),
-    loadContentServer<Partial<HomeNewspaper>>(NEWSPAPER_KEY),
     loadContentServer<Partial<InstructorProfile>>(INSTRUCTOR_KEY),
   ])
   const hero = { ...publishedHero, ...savedHero }
-  const newspaper = { ...publishedNewspaper, ...savedNewspaper }
   const profile = { ...publishedProfile, ...savedProfile }
 
   return (
@@ -74,7 +61,6 @@ export default async function HomePage() {
       <SiteHeader />
       <main className="mx-auto max-w-[1280px] px-4 pb-16 lg:px-6">
         <Masthead />
-        <NewspaperDownload published={newspaper} />
         <HomeHero published={hero} />
         <MacromoleculeSlider />
         <InstructorTeaser published={profile} image={instructor.image} />

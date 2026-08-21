@@ -227,6 +227,12 @@ export const pathwayContent: Record<string, PathwayContent> = {
       `대사 과정의 조건을 이해하라: 대사는 신체 상태에 따라 유기적으로 변화하는데, 식후(인슐린 우세) 상태와 공복(글루카곤 우세) 상태, 또는 운동 시(에너지 요구 증가) 몸이 에너지를 어떻게 저장하고 방출하는지 '생리적 상황'과 연계하여 공부해야 한다.`,
     ],
   },
+  "metabolism/vetbiochemistry-newspaper": {
+    overview: [
+      `수의생화학신문은 한 학기 동안 다룬 대사 경로를 신문의 형식으로 엮어 정리한 자료이다. 강의에서 경로별로 나누어 배운 내용을 한자리에 모아 놓았기 때문에, 개별 반응을 따라가다 놓치기 쉬운 경로 사이의 연결을 한눈에 확인하는 데 쓰인다.`,
+      `아래에서 전체 지면을 PDF로 내려받을 수 있다. 파일은 로그인한 수강생에게만 제공된다.`,
+    ],
+  },
 
   "digestion-absorption-transportation/digestion": {
     overview: [

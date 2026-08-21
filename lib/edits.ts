@@ -80,23 +80,33 @@ export function saveHomeHero(hero: HomeHero): Promise<void> {
   return saveContent(HERO_KEY, hero)
 }
 
-// The home page's newspaper download card: its title and the PDF it hands out.
-// One document, shared the same way as everything else. Only the administrator
+// The newspaper download card: its title and the PDF it hands out. One
+// document, shared the same way as everything else. Only the administrator
 // (jbnu) edits it; every visitor downloads whatever was last saved.
 
-export type HomeNewspaper = {
+export type Newspaper = {
   title: string
   /** A path under /public, or a URL from uploadFile once the PDF is replaced. */
   pdf: string
 }
 
+// Still `home`, though the card now lives under Study Tips: the key is what a
+// saved row is found by, so renaming it would strand whichever PDF the
+// administrator has already uploaded and put the shipped default back in front
+// of every reader.
 export const NEWSPAPER_KEY = 'metabolism-home-newspaper'
 
-export function loadHomeNewspaper(): Promise<HomeNewspaper | null> {
-  return loadContent<HomeNewspaper>(NEWSPAPER_KEY)
+/** What the card shows before anyone has edited it. */
+export const publishedNewspaper: Newspaper = {
+  title: '수의생화학신문 (2026년)',
+  pdf: '/downloads/vet-biochem-news-2026.pdf',
 }
 
-export function saveHomeNewspaper(data: HomeNewspaper): Promise<void> {
+export function loadNewspaper(): Promise<Newspaper | null> {
+  return loadContent<Newspaper>(NEWSPAPER_KEY)
+}
+
+export function saveNewspaper(data: Newspaper): Promise<void> {
   return saveContent(NEWSPAPER_KEY, data)
 }
 

@@ -137,7 +137,10 @@ export const categories: Category[] = [
     name: 'Metabolism',
     tagline: 'The grammar of energy and matter',
     image: '/images/metabolism.png',
-    items: [['Metabolism', ['Catabolism', 'Anabolism']], 'Study Tips for Metabolism'],
+    items: [
+      ['Metabolism', ['Catabolism', 'Anabolism']],
+      ['Study Tips for Metabolism', ['Vetbiochemistry Newspaper']],
+    ],
   }),
   cat({
     slug: 'digestion-absorption-transportation',
@@ -224,6 +227,16 @@ export const categories: Category[] = [
     items: ['Hormone', 'Hormonal Regulation and Metabolism'],
   }),
 ]
+
+/**
+ * The one page that carries the newspaper download card.
+ *
+ * It used to sit on the home page, above the hero. It is course material like
+ * everything else, so it now lives where the rest of the material does — under
+ * Study Tips — and the landing page is left to introduce the course.
+ */
+export const NEWSPAPER_PATH =
+  'metabolism/study-tips-for-metabolism/vetbiochemistry-newspaper'
 
 // Lecture-slide PDFs, keyed by `${categorySlug}/${pathwaySlug}`.
 const pathwaySlidesPdf: Record<string, string> = {

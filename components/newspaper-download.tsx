@@ -1,25 +1,37 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Download, Lock, Newspaper, Pencil, Trash2, Upload } from 'lucide-react'
+import {
+  Download,
+  Lock,
+  Newspaper as NewspaperIcon,
+  Pencil,
+  Trash2,
+  Upload,
+} from 'lucide-react'
 import { useAuth } from './auth-provider'
 import { LoginDialog } from './login-dialog'
-import { loadHomeNewspaper, saveHomeNewspaper, type HomeNewspaper } from '@/lib/edits'
+import { loadNewspaper, saveNewspaper, type Newspaper } from '@/lib/edits'
 import { downloadUrl } from '@/lib/download-url'
 import { deleteUpload, uploadFile } from '@/lib/site-content'
 
-// The veterinary-biochemistry newspaper download card. The PDF is served from
-// /public (or from an upload once replaced), but only logged-in users are shown
-// the download link; everyone else is prompted to sign in first.
+// The veterinary-biochemistry newspaper download card, shown on the Study Tips
+// sub-page (lib/pathways.ts, NEWSPAPER_PATH). The PDF is served from /public
+// (or from an upload once replaced), but only logged-in users are shown the
+// download link; everyone else is prompted to sign in first.
 //
 // The administrator (jbnu) edits the title in place and uploads a replacement
 // PDF, and what is saved is what every visitor downloads (lib/edits.ts).
-export function NewspaperDownload({ published }: { published: HomeNewspaper }) {
+//
+// `published` arrives already merged with whatever was saved, read on the
+// server by the page — so the card paints the right newspaper the first time.
+// The load below stays for the fallback where there is no Supabase to read.
+export function NewspaperDownload({ published }: { published: Newspaper }) {
   const { user, isAdmin } = useAuth()
   const [loginOpen, setLoginOpen] = useState(false)
 
-  const [data, setData] = useState<HomeNewspaper>(published)
-  const [draft, setDraft] = useState<HomeNewspaper>(published)
+  const [data, setData] = useState<Newspaper>(published)
+  const [draft, setDraft] = useState<Newspaper>(published)
   const [editing, setEditing] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -28,7 +40,7 @@ export function NewspaperDownload({ published }: { published: HomeNewspaper }) {
   // Prefer the saved edit over the published defaults.
   useEffect(() => {
     let stale = false
-    loadHomeNewspaper().then((saved) => {
+    loadNewspaper().then((saved) => {
       if (stale || !saved) return
       setData({ ...published, ...saved })
     })
@@ -73,7 +85,7 @@ export function NewspaperDownload({ published }: { published: HomeNewspaper }) {
   async function save() {
     const replaced = data.pdf
     try {
-      await saveHomeNewspaper(draft)
+      await saveNewspaper(draft)
     } catch (e) {
       setError(e instanceof Error ? e.message : '저장하지 못했습니다.')
       return
@@ -106,7 +118,7 @@ export function NewspaperDownload({ published }: { published: HomeNewspaper }) {
       <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h2 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-science-red">
-            <Newspaper className="size-[15px]" />
+            <NewspaperIcon className="size-[15px]" />
             Newspaper
           </h2>
           {editing ? (
