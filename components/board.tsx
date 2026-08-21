@@ -373,8 +373,9 @@ export function Board() {
             로그인이 필요합니다
           </h2>
           <p className="mt-3 text-[15px] leading-relaxed text-neutral-600">
-            {board.name}은(는) 관리자와 글쓴이 본인만 볼 수 있습니다. 로그인하면
-            직접 남긴 글과 답변을 확인할 수 있습니다.
+            {isPrivate
+              ? `${board.name}은(는) 관리자와 글쓴이 본인만 볼 수 있습니다. 로그인하면 직접 남긴 글과 답변을 확인할 수 있습니다.`
+              : `${board.name}은(는) 로그인한 뒤에 볼 수 있습니다. 로그인하면 수업 공지를 확인할 수 있습니다.`}
           </p>
           <button
             type="button"

@@ -139,16 +139,19 @@ export async function GET(request: Request) {
 
   const { user, isAdmin } = await whoIsAsking()
 
-  // A private board shows a signed-in student their own posts and nothing
-  // else; to a visitor who is not signed in it does not exist at all.
+  // Every board — notices included — is for signed-in readers only; to a
+  // visitor who is not signed in it does not exist at all.
+  if (!user && !isAdmin) {
+    return NextResponse.json(
+      { error: '로그인한 뒤에 이용할 수 있습니다.' },
+      { status: 401 },
+    )
+  }
+
+  // A private board additionally shows a signed-in student their own posts and
+  // nothing else. Notices stay readable by any signed-in reader.
   let filter = ''
-  if (category !== 'notice' && !isAdmin) {
-    if (!user) {
-      return NextResponse.json(
-        { error: '로그인한 뒤에 이용할 수 있습니다.' },
-        { status: 401 },
-      )
-    }
+  if (category !== 'notice' && !isAdmin && user) {
     filter = `&author_username=eq.${encodeURIComponent(user)}`
   }
 
