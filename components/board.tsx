@@ -6,6 +6,8 @@ import {
   Bold,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ImagePlus,
   Italic,
   Lock,
@@ -44,6 +46,9 @@ const LABEL = 'text-[11px] font-bold uppercase tracking-wider text-neutral-500'
 
 /** At most this many images per post — mirrors the server's own limit. */
 const MAX_IMAGES = 8
+
+/** Posts shown per page. */
+const PAGE_SIZE = 10
 
 type Draft = { title: string; body: string; images: string[] }
 
@@ -100,6 +105,7 @@ export function Board() {
   const [replyImages, setReplyImages] = useState<string[]>([])
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [lightbox, setLightbox] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
 
   // Who may write here. Notices are the administrator's; the private boards
   // are for anyone signed in, including the administrator.
@@ -131,6 +137,7 @@ export function Board() {
     setReplyingId(null)
     setReplyImages([])
     setConfirmId(null)
+    setPage(1)
     void refresh()
   }, [ready, user, isAdmin, refresh])
 
@@ -204,6 +211,25 @@ export function Board() {
     () => posts.filter((p) => !p.reply).length,
     [posts],
   )
+
+  const pageCount = Math.max(1, Math.ceil(posts.length / PAGE_SIZE))
+  const visible = posts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+  // Deleting the last post on the last page pulls the page count down under
+  // the current page; step back onto one that still has posts.
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount)
+  }, [page, pageCount])
+
+  // Turning a page starts from the top of a fresh list — no post left expanded
+  // or mid-edit from the page just left.
+  const goToPage = (next: number) => {
+    setOpenId(null)
+    setEditingId(null)
+    setReplyingId(null)
+    setConfirmId(null)
+    setPage(next)
+  }
 
   if (!ready) return <div className="h-64" />
 
@@ -378,8 +404,9 @@ export function Board() {
           </p>
         </div>
       ) : (
+        <>
         <ul className="mt-2 min-h-[60vh]">
-          {posts.map((post) => {
+          {visible.map((post) => {
             const open = openId === post.id
             const editing = editingId === post.id
             const replying = replyingId === post.id
@@ -606,6 +633,8 @@ export function Board() {
             )
           })}
         </ul>
+        <Pager page={page} pageCount={pageCount} onChange={goToPage} />
+        </>
       )}
 
       {lightbox && <Lightbox src={lightbox} onClose={() => setLightbox(null)} />}
@@ -640,6 +669,68 @@ function PillButton({
     >
       {children}
     </button>
+  )
+}
+
+// Page controls under the list. Hidden when everything fits one page. Every
+// page number is shown — a class board runs to a handful of pages, not the
+// hundreds that would need an ellipsis.
+function Pager({
+  page,
+  pageCount,
+  onChange,
+}: {
+  page: number
+  pageCount: number
+  onChange: (page: number) => void
+}) {
+  if (pageCount <= 1) return null
+
+  const arrow =
+    'flex size-9 items-center justify-center rounded-md border border-neutral-300 text-neutral-600 transition-colors hover:border-foreground hover:text-foreground disabled:opacity-40 disabled:hover:border-neutral-300 disabled:hover:text-neutral-600'
+
+  return (
+    <nav
+      aria-label="페이지"
+      className="mt-8 flex items-center justify-center gap-1.5"
+    >
+      <button
+        type="button"
+        onClick={() => onChange(page - 1)}
+        disabled={page === 1}
+        aria-label="이전 페이지"
+        className={arrow}
+      >
+        <ChevronLeft className="size-4" />
+      </button>
+      {Array.from({ length: pageCount }, (_, i) => i + 1).map((n) => {
+        const on = n === page
+        return (
+          <button
+            key={n}
+            type="button"
+            onClick={() => onChange(n)}
+            aria-current={on ? 'page' : undefined}
+            className={`size-9 rounded-md text-[13px] font-bold transition-colors ${
+              on
+                ? 'bg-foreground text-background'
+                : 'border border-neutral-300 text-neutral-600 hover:border-foreground hover:text-foreground'
+            }`}
+          >
+            {n}
+          </button>
+        )
+      })}
+      <button
+        type="button"
+        onClick={() => onChange(page + 1)}
+        disabled={page === pageCount}
+        aria-label="다음 페이지"
+        className={arrow}
+      >
+        <ChevronRight className="size-4" />
+      </button>
+    </nav>
   )
 }
 
