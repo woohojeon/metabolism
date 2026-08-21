@@ -61,32 +61,38 @@ function writeLocal(rows: Student[]) {
 // ------------------------------------------------------------------- session
 
 /**
- * Fired when the server turns down a write because the administrator's session
- * has lapsed. The provider listens and drops the stored sign-in, so the page
- * stops offering controls that no longer work.
+ * Fired when the server turns down a request because the session behind it has
+ * lapsed — the administrator's, or a student's. The provider listens and drops
+ * the stored sign-in, so the page stops offering controls that no longer work
+ * and the header stops claiming someone is signed in when nobody is.
  */
-export const ADMIN_EXPIRED_EVENT = 'vbiochem:admin-expired'
+export const SESSION_EXPIRED_EVENT = 'vbiochem:session-expired'
 
-export function announceAdminExpired() {
+export function announceSessionExpired() {
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new Event(ADMIN_EXPIRED_EVENT))
+    window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT))
   }
 }
 
 /**
- * Whether the server still recognises this browser as the administrator.
+ * Who the server still takes this browser to be, and whether it may edit.
  *
- * A dropped connection answers yes: the stored sign-in is worth keeping
- * through a blip, and the next write will say so plainly if it is not.
+ * `null` means the question could not be put — offline, or the API is down.
+ * That is not the same as "nobody": the stored sign-in is worth keeping through
+ * a blip, and the next write will say so plainly if the session really is gone.
  */
-export async function adminSessionAlive(): Promise<boolean> {
-  if (!usingSupabase) return true
+export async function sessionState(): Promise<{
+  user: string | null
+  isAdmin: boolean
+} | null> {
+  if (!usingSupabase) return null
   try {
     const res = await fetch('/api/login', { cache: 'no-store' })
-    if (!res.ok) return false
-    return ((await res.json()) as { isAdmin?: boolean }).isAdmin === true
+    if (!res.ok) return { user: null, isAdmin: false }
+    const body = (await res.json()) as { isAdmin?: boolean; user?: string | null }
+    return { user: body.user ?? null, isAdmin: body.isAdmin === true }
   } catch {
-    return true
+    return null
   }
 }
 
@@ -101,7 +107,7 @@ async function fail(res: Response, fallback: string) {
   // refusal here means the session lapsed rather than that the wrong person
   // asked.
   if (res.status === 403) {
-    announceAdminExpired()
+    announceSessionExpired()
     return new Error(SESSION_EXPIRED_MESSAGE)
   }
   try {

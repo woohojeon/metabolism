@@ -2,10 +2,10 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import {
-  ADMIN_EXPIRED_EVENT,
   ADMIN_USERNAME,
-  adminSessionAlive,
+  SESSION_EXPIRED_EVENT,
   endSession,
+  sessionState,
   verifyLogin,
 } from '@/lib/students'
 
@@ -52,22 +52,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // ignore storage access errors
     }
 
-    // A student's sign-in only decides what this browser shows them, so the key
-    // is the whole of it.
-    if (saved !== ADMIN_USERNAME) {
-      setUser(saved)
+    if (!saved) {
       setReady(true)
       return
     }
 
-    // The administrator's is different: what the server obeys is an httpOnly
-    // cookie that expires, while this key never does. Restored without asking,
-    // it puts edit controls back on a page whose every save the server will
-    // refuse. So the sign-in is only restored once the server confirms it.
+    // What the server obeys is an httpOnly cookie that expires, while this key
+    // never does. Restored without asking, it puts controls back on a page
+    // whose every write the server will refuse — the admin's edit buttons, a
+    // student's Q&A form. So the sign-in is only restored once the server says
+    // it still knows this browser, and by that name.
     let stale = false
-    adminSessionAlive().then((alive) => {
+    sessionState().then((state) => {
       if (stale) return
-      if (alive) setUser(saved)
+      // `null` is "could not ask", not "nobody" — keep what was stored.
+      if (state === null || state.user === saved) setUser(saved)
       else forget()
       setReady(true)
     })
@@ -79,8 +78,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // The session can also lapse with the page still open. The first refused
   // write says so, and the controls go away rather than staying to fail again.
   useEffect(() => {
-    window.addEventListener(ADMIN_EXPIRED_EVENT, forget)
-    return () => window.removeEventListener(ADMIN_EXPIRED_EVENT, forget)
+    window.addEventListener(SESSION_EXPIRED_EVENT, forget)
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, forget)
   }, [forget])
 
   const login = async (username: string, password: string) => {

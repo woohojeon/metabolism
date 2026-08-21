@@ -21,3 +21,8 @@ tsconfig.tsbuildinfo
 # Local reference material, not part of the site (kept on disk, out of the repo)
 roboto-2-main/
 react-app-from-screenshot.zip
+
+# Class rosters. These hold real names and student numbers, and this repository
+# is public — the spreadsheet is uploaded through /admin, never committed.
+*.xls
+*.xlsx

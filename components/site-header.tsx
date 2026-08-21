@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Menu, X, Search, User, LogOut, Users } from 'lucide-react'
 import { Wordmark } from './wordmark'
 import { categories } from '@/lib/pathways'
+import { BOARDS, BOARD_CATEGORIES } from '@/lib/board'
 import { useAuth } from './auth-provider'
 import { SearchDialog } from './search-dialog'
 import { LoginDialog } from './login-dialog'
@@ -167,6 +168,37 @@ export function SiteHeader() {
 
         <nav className="flex-1 overflow-y-auto overscroll-contain px-5 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
           <ul className="flex flex-col gap-7">
+            {/* The board comes before the course structure: it is where the
+                notices are, so it is what someone opening this menu mid-term
+                is most often after. */}
+            <li>
+              <Link
+                href="/board"
+                onClick={() => setMenuOpen(false)}
+                className="group flex items-baseline gap-2 border-b border-neutral-200 pb-2"
+              >
+                <h3 className="text-[14px] font-extrabold uppercase tracking-wide text-foreground transition-colors group-hover:text-science-red">
+                  게시판
+                </h3>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                  Board
+                </span>
+              </Link>
+              <ul className="mt-2 flex flex-col">
+                {BOARD_CATEGORIES.map((slug) => (
+                  <li key={slug}>
+                    <Link
+                      href={slug === 'notice' ? '/board' : `/board?tab=${slug}`}
+                      onClick={() => setMenuOpen(false)}
+                      className="block py-2.5 text-[13px] leading-snug text-neutral-600 transition-colors hover:text-science-red sm:py-1.5"
+                    >
+                      {BOARDS[slug].name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </li>
+
             {categories.map((cat) => (
               <li key={cat.slug}>
                 <Link

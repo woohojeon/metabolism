@@ -8,7 +8,7 @@
 //                    Nothing is shared; this is the demo behaviour the site had
 //                    before Supabase was configured.
 
-import { announceAdminExpired, SESSION_EXPIRED_MESSAGE, usingSupabase } from './students'
+import { announceSessionExpired, SESSION_EXPIRED_MESSAGE, usingSupabase } from './students'
 
 // ------------------------------------------------------------------ documents
 
@@ -42,7 +42,7 @@ async function failure(res: Response, fallback: string) {
   // the session lapsed — an answer the editor can act on, unlike being told
   // they lack a permission they were just using.
   if (res.status === 403) {
-    announceAdminExpired()
+    announceSessionExpired()
     return new Error(SESSION_EXPIRED_MESSAGE)
   }
   try {

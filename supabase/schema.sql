@@ -1,5 +1,17 @@
 -- Roster of accounts allowed to sign in to the site.
 -- Run this once in the Supabase dashboard: SQL Editor → New query → Run.
+--
+-- Two things that bite when running it again after adding a table here:
+--
+--   * The editor runs the whole script as one transaction, so a single failing
+--     statement rolls back the rest — including the new table, which then
+--     appears simply not to have been created. The storage.buckets insert at
+--     the bottom is the one that fails on projects where it is not owned.
+--     Running just the new section on its own avoids this.
+--   * PostgREST answers from a cached picture of the schema, and a fresh table
+--     can be missing from it for a while — the API reports "Could not find the
+--     table ... in the schema cache" although the table is there. To settle it
+--     at once:  notify pgrst, 'reload schema';
 
 create table if not exists public.students (
   id         uuid primary key default gen_random_uuid(),
@@ -36,6 +48,39 @@ create table if not exists public.site_content (
 -- nothing. Both directions go through /api/content: reads are public there,
 -- writes require the administrator cookie.
 alter table public.site_content enable row level security;
+
+-- --------------------------------------------------------------------- board
+
+-- The three boards, in one table: 공지사항 (notice), Q&A (qa) and 건의사항
+-- (suggestion). They differ only in who may write and who may read, which is
+-- decided in /api/board, so one table with a category column is the whole of
+-- it.
+--
+-- `author_username` is written from the signed session cookie, never from the
+-- request body: it is what makes "only the administrator can see who asked
+-- this" mean anything.
+create table if not exists public.board_posts (
+  id              uuid primary key default gen_random_uuid(),
+  category        text not null check (category in ('notice', 'qa', 'suggestion')),
+  title           text not null,
+  body            text not null,
+  author_username text not null,
+  author_name     text not null default '',
+  -- The administrator's answer, shown under the post to its author.
+  reply           text,
+  replied_at      timestamptz,
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now()
+);
+
+-- Every list is "this category, newest first".
+create index if not exists board_posts_category_created_idx
+  on public.board_posts (category, created_at desc);
+
+-- RLS on with no policies, as elsewhere: the anon key can reach nothing, and a
+-- Q&A the browser could read directly would not be private at all. Everything
+-- goes through /api/board, which decides row by row what the caller may see.
+alter table public.board_posts enable row level security;
 
 -- ------------------------------------------------------------------- uploads
 

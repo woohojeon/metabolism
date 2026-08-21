@@ -3,38 +3,54 @@ import { NextResponse } from 'next/server'
 import {
   ADMIN_COOKIE,
   ADMIN_COOKIE_MAX_AGE,
+  USER_COOKIE,
+  USER_COOKIE_MAX_AGE,
   isAdminSession,
+  readUserSession,
   signAdminSession,
+  signUserSession,
 } from '@/lib/admin-session'
 import { ADMIN_USERNAME } from '@/lib/students'
 import { sb, supabaseReady } from '@/lib/supabase-rest'
 
 // Checks a sign-in against the students table. The comparison happens here, on
 // the server, so the roster and its passwords are never sent to the browser.
-// Signing in as the administrator also sets the /admin session cookie.
+// A successful sign-in sets the session cookie that says who this browser is;
+// signing in as the administrator also sets the one that says what it may do.
 
 type Row = { username: string; password: string }
 
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  sameSite: 'lax',
+  secure: process.env.NODE_ENV === 'production',
+  path: '/',
+} as const
+
 /**
- * GET /api/login — whether this browser still holds a valid admin session.
+ * GET /api/login — who the server still takes this browser to be.
  *
- * The browser cannot read the cookie that decides this, so without asking it
- * has no way to know its own session has lapsed, and goes on showing edit
- * controls that every save refuses. A live session is renewed here, so a
- * working day of use does not end mid-edit.
+ * The browser cannot read the cookies that decide this, so without asking it
+ * has no way to know its own session has lapsed, and goes on showing controls —
+ * edit buttons, a Q&A form — that every write refuses. Live sessions are
+ * renewed here, so a working day of use does not end mid-edit.
  */
 export async function GET() {
   const jar = await cookies()
   const alive = isAdminSession(jar.get(ADMIN_COOKIE)?.value)
-  const res = NextResponse.json({ isAdmin: alive })
+  const user = readUserSession(jar.get(USER_COOKIE)?.value)
+  const res = NextResponse.json({ isAdmin: alive, user })
 
   if (alive) {
     res.cookies.set(ADMIN_COOKIE, signAdminSession(), {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
+      ...COOKIE_OPTIONS,
       maxAge: ADMIN_COOKIE_MAX_AGE,
+    })
+  }
+  if (user) {
+    res.cookies.set(USER_COOKIE, signUserSession(user), {
+      ...COOKIE_OPTIONS,
+      maxAge: USER_COOKIE_MAX_AGE,
     })
   }
 
@@ -81,12 +97,16 @@ export async function POST(request: Request) {
   const isAdmin = row.username === ADMIN_USERNAME
   const res = NextResponse.json({ ok: true, isAdmin })
 
+  // Everyone who signs in gets the identity cookie — it is what lets the board
+  // show a student their own questions and nobody else's.
+  res.cookies.set(USER_COOKIE, signUserSession(row.username), {
+    ...COOKIE_OPTIONS,
+    maxAge: USER_COOKIE_MAX_AGE,
+  })
+
   if (isAdmin) {
     res.cookies.set(ADMIN_COOKIE, signAdminSession(), {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
+      ...COOKIE_OPTIONS,
       maxAge: ADMIN_COOKIE_MAX_AGE,
     })
   }
