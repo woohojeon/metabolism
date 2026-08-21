@@ -5,10 +5,12 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Bold,
   Check,
+  ChevronDown,
   ImagePlus,
   Italic,
   Lock,
   MessageSquare,
+  Paperclip,
   Pencil,
   Plus,
   Subscript,
@@ -219,7 +221,7 @@ export function Board() {
               type="button"
               onClick={() => goTo(slug)}
               aria-current={on ? 'page' : undefined}
-              className={`flex h-10 items-center gap-1.5 rounded-full border px-4 text-[12px] font-bold uppercase tracking-wider transition-colors ${
+              className={`flex h-10 items-center gap-1.5 rounded-md border px-4 text-[12px] font-bold uppercase tracking-wider transition-colors ${
                 on
                   ? 'border-foreground bg-foreground text-background'
                   : 'border-neutral-300 text-neutral-600 hover:border-foreground hover:text-foreground'
@@ -241,7 +243,7 @@ export function Board() {
               setDraft(EMPTY)
               setError('')
             }}
-            className="ml-auto flex h-10 items-center gap-2 rounded-full bg-science-red px-5 text-[11px] font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90"
+            className="ml-auto flex h-10 items-center gap-2 rounded-md bg-science-red px-5 text-[11px] font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90"
           >
             <Plus className="size-4" />
             {board.action}
@@ -251,7 +253,7 @@ export function Board() {
 
       {/* What the administrator is looking at, when it is a private board */}
       {isAdmin && isPrivate && !loading && posts.length > 0 && (
-        <dl className="mt-6 grid grid-cols-2 gap-px overflow-hidden bg-neutral-200">
+        <dl className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-neutral-200 bg-neutral-200">
           {[
             { label: 'Posts', value: posts.length },
             { label: 'Awaiting reply', value: unanswered },
@@ -272,7 +274,7 @@ export function Board() {
 
       {/* Compose */}
       {composing && (
-        <section className="mt-6 border border-neutral-300">
+        <section className="mt-6 overflow-hidden rounded-md border border-neutral-300">
           <header className="border-b border-neutral-200 bg-panel/60 px-5 py-3">
             <h2 className={LABEL}>{board.action}</h2>
           </header>
@@ -338,22 +340,26 @@ export function Board() {
           <button
             type="button"
             onClick={() => setLoginOpen(true)}
-            className="mt-7 h-11 rounded-full bg-science-red px-6 text-[12px] font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90"
+            className="mt-7 h-11 rounded-md bg-science-red px-6 text-[12px] font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90"
           >
             Sign in
           </button>
         </div>
       ) : loading ? (
-        <div className="mt-6 flex flex-col gap-px bg-neutral-200">
+        <ul className="mt-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="bg-background px-1 py-5">
+            <li key={i} className="border-b border-neutral-200 px-3 py-5">
               <div className="h-4 w-2/3 animate-pulse rounded bg-panel" />
-            </div>
+              <div className="mt-2.5 h-3 w-1/3 animate-pulse rounded bg-panel" />
+            </li>
           ))}
-        </div>
+        </ul>
       ) : posts.length === 0 ? (
-        <div className="py-16 text-center">
-          <p className="text-[15px] font-semibold text-foreground">
+        <div className="flex flex-col items-center py-20 text-center">
+          <span className="inline-flex size-14 items-center justify-center rounded-full bg-panel">
+            <MessageSquare className="size-6 text-neutral-400" />
+          </span>
+          <p className="mt-5 text-[15px] font-semibold text-foreground">
             {tab === 'notice' ? '등록된 공지가 없습니다.' : '아직 남긴 글이 없습니다.'}
           </p>
           <p className="mt-1 text-[14px] text-neutral-500">
@@ -370,7 +376,10 @@ export function Board() {
             const replying = replyingId === post.id
 
             return (
-              <li key={post.id} className="border-b border-neutral-200">
+              <li
+                key={post.id}
+                className={`border-b border-neutral-200 ${open ? 'bg-panel/20' : ''}`}
+              >
                 {/* The row itself */}
                 <button
                   type="button"
@@ -381,13 +390,24 @@ export function Board() {
                     setConfirmId(null)
                   }}
                   aria-expanded={open}
-                  className="flex w-full items-baseline gap-3 py-4 text-left transition-colors hover:text-science-red"
+                  className="group flex w-full items-start gap-3 px-3 py-5 text-left transition-colors hover:bg-panel/40"
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[17px] font-bold leading-snug text-foreground transition-colors hover:text-science-red">
-                      {post.title}
+                    <span className="flex items-center gap-2">
+                      {isPrivate && (
+                        <StatusBadge answered={Boolean(post.reply)} />
+                      )}
+                      <span className="min-w-0 truncate text-[17px] font-bold leading-snug text-foreground transition-colors group-hover:text-science-red">
+                        {post.title}
+                      </span>
+                      {post.images.length > 0 && (
+                        <Paperclip
+                          className="size-3.5 shrink-0 text-neutral-400"
+                          aria-label={`이미지 ${post.images.length}장`}
+                        />
+                      )}
                     </span>
-                    <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
                       <span className={LABEL}>{formatPostDate(post.createdAt)}</span>
                       {post.author && (
                         <span className="text-[11px] font-semibold text-neutral-500">
@@ -399,26 +419,21 @@ export function Board() {
                           )}
                         </span>
                       )}
-                      {isPrivate && (
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
-                            post.reply
-                              ? 'bg-foreground text-background'
-                              : 'bg-panel text-neutral-500'
-                          }`}
-                        >
-                          {post.reply ? '답변 완료' : '답변 대기'}
-                        </span>
-                      )}
                     </span>
                   </span>
+                  <ChevronDown
+                    className={`mt-0.5 size-5 shrink-0 text-neutral-400 transition-transform group-hover:text-science-red ${
+                      open ? 'rotate-180' : ''
+                    }`}
+                    aria-hidden
+                  />
                 </button>
 
                 {/* Its body */}
                 {open && (
-                  <div className="pb-6">
+                  <div className="px-3 pb-6">
                     {editing ? (
-                      <div className="flex flex-col gap-3 border-l-4 border-foreground bg-panel/40 px-4 py-4">
+                      <div className="flex flex-col gap-3 rounded-md border border-l-4 border-neutral-200 border-l-foreground bg-panel/40 px-4 py-4">
                         <input
                           value={editDraft.title}
                           onChange={(e) =>
@@ -454,21 +469,26 @@ export function Board() {
                         </div>
                       </div>
                     ) : (
-                      <>
+                      <div className="rounded-md border border-neutral-200 bg-background px-5 py-5">
                         <RichView html={post.body} />
                         <AttachmentGallery
                           images={post.images}
                           onOpen={(src) => setLightbox(src)}
                         />
-                      </>
+                      </div>
                     )}
 
                     {/* The administrator's answer */}
                     {post.reply && !replying && (
-                      <div className="mt-5 border-l-4 border-science-red bg-panel px-4 py-4">
-                        <p className={LABEL}>
+                      <div className="mt-4 rounded-md border border-l-4 border-neutral-200 border-l-science-red bg-panel px-4 py-4">
+                        <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-science-red">
+                          <MessageSquare className="size-3.5" />
                           관리자 답변
-                          {post.repliedAt && ` · ${formatPostDate(post.repliedAt)}`}
+                          {post.repliedAt && (
+                            <span className="font-semibold normal-case text-neutral-400">
+                              · {formatPostDate(post.repliedAt)}
+                            </span>
+                          )}
                         </p>
                         <RichView
                           html={post.reply}
@@ -478,7 +498,7 @@ export function Board() {
                     )}
 
                     {replying && (
-                      <div className="mt-5 flex flex-col gap-3 border-l-4 border-science-red bg-panel px-4 py-4">
+                      <div className="mt-4 flex flex-col gap-3 rounded-md border border-l-4 border-neutral-200 border-l-science-red bg-panel px-4 py-4">
                         <span className={LABEL}>관리자 답변</span>
                         <RichField
                           html={replyDraft}
@@ -597,10 +617,29 @@ function PillButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`flex h-9 items-center gap-1.5 rounded-full border px-4 text-[11px] font-bold uppercase tracking-wider transition-colors disabled:opacity-50 ${tones[tone]}`}
+      className={`flex h-9 items-center gap-1.5 rounded-md border px-4 text-[11px] font-bold uppercase tracking-wider transition-colors disabled:opacity-50 ${tones[tone]}`}
     >
       {children}
     </button>
+  )
+}
+
+// A post's reply state, shown on private-board rows: a filled chip once the
+// administrator has answered, an outlined one with a live dot while it waits.
+function StatusBadge({ answered }: { answered: boolean }) {
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+        answered
+          ? 'bg-foreground text-background'
+          : 'border border-neutral-300 text-neutral-500'
+      }`}
+    >
+      <span
+        className={`size-1.5 rounded-full ${answered ? 'bg-background' : 'bg-science-red'}`}
+      />
+      {answered ? '답변 완료' : '답변 대기'}
+    </span>
   )
 }
 
@@ -763,7 +802,7 @@ function ImageAttach({
         type="button"
         onClick={() => fileRef.current?.click()}
         disabled={disabled || busy || full}
-        className="inline-flex w-fit items-center gap-1.5 rounded-full border border-neutral-300 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-neutral-600 transition-colors hover:border-foreground hover:text-foreground disabled:opacity-50"
+        className="inline-flex w-fit items-center gap-1.5 rounded-md border border-neutral-300 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-neutral-600 transition-colors hover:border-foreground hover:text-foreground disabled:opacity-50"
       >
         <ImagePlus className="size-4" />
         {busy ? '올리는 중…' : full ? `최대 ${MAX_IMAGES}장` : '이미지 추가'}
