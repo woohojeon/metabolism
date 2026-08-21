@@ -32,7 +32,7 @@ export const BOARDS: Record<BoardCategory, BoardMeta> = {
     slug: 'notice',
     name: '공지사항',
     english: 'Notices',
-    note: '수업 공지입니다. 관리자만 글을 쓸 수 있고, 모두가 읽을 수 있습니다.',
+    note: '수업 공지입니다.',
     action: '공지 작성',
   },
   qa: {
@@ -46,7 +46,7 @@ export const BOARDS: Record<BoardCategory, BoardMeta> = {
     slug: 'suggestion',
     name: '건의사항',
     english: 'Suggestions',
-    note: '수업에 바라는 점을 남겨 주세요. 관리자와 본인만 볼 수 있으며, 다른 학생에게는 보이지 않습니다.',
+    note: '이 홈페이지 또는 수업에 바라는 점을 남겨 주세요. 관리자와 본인만 볼 수 있으며, 다른 학생에게는 보이지 않습니다.',
     action: '건의하기',
   },
 }

@@ -145,7 +145,7 @@ export const categories: Category[] = [
     items: [
       ['Metabolism', ['Catabolism', 'Anabolism']],
       'Study Tips for Metabolism',
-      'Vetbiochemistry Newspaper',
+      'Veterinary Biochemistry Newspaper',
     ],
   }),
   cat({
@@ -235,13 +235,13 @@ export const categories: Category[] = [
 ]
 
 // Pages that publish an Overview and the PDF alone. See `overviewOnly` above.
-const overviewOnlyPages = new Set(['metabolism/vetbiochemistry-newspaper'])
+const overviewOnlyPages = new Set<string>([])
 
 // Lecture-slide PDFs, keyed by `${categorySlug}/${pathwaySlug}`.
 const pathwaySlidesPdf: Record<string, string> = {
   'carbohydrate-metabolism/glycolysis': '/downloads/glycolysis.pdf',
   // The newspaper is handed out through the slide card like any other reading.
-  'metabolism/vetbiochemistry-newspaper': '/downloads/vet-biochem-news-2026.pdf',
+  'metabolism/veterinary-biochemistry-newspaper': '/downloads/vet-biochem-news-2026.pdf',
 }
 
 // Supplementary YouTube lectures, keyed by `${categorySlug}/${pathwaySlug}`.
