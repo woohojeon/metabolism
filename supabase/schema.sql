@@ -64,6 +64,10 @@ create table if not exists public.board_posts (
   category        text not null check (category in ('notice', 'qa', 'suggestion')),
   title           text not null,
   body            text not null,
+  -- Attached image URLs (Storage links, in the order they were added). The
+  -- body itself is a small subset of HTML — bold/italic/underline and
+  -- super/subscripts, the same as an article Overview — sanitised on render.
+  images          text[] not null default '{}',
   author_username text not null,
   author_name     text not null default '',
   -- The administrator's answer, shown under the post to its author.
@@ -72,6 +76,11 @@ create table if not exists public.board_posts (
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
 );
+
+-- Adds the image column to a board_posts table created before it existed.
+-- Safe to run again; a no-op once the column is there.
+alter table public.board_posts
+  add column if not exists images text[] not null default '{}';
 
 -- Every list is "this category, newest first".
 create index if not exists board_posts_category_created_idx

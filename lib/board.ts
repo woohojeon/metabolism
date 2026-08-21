@@ -55,7 +55,11 @@ export type BoardPost = {
   id: string
   category: BoardCategory
   title: string
+  /** A small subset of HTML (bold/italic/underline, super/subscript), the same
+   *  as an article Overview. Rendered through sanitizeRich, never raw. */
   body: string
+  /** Attached image URLs, in the order they were added. */
+  images: string[]
   /** Empty unless the reader is allowed to know who wrote it. */
   author: string
   /** Likewise — the administrator sees it, so a question can be traced. */
@@ -108,6 +112,7 @@ export async function createPost(input: {
   category: BoardCategory
   title: string
   body: string
+  images?: string[]
 }): Promise<BoardPost> {
   if (!usingSupabase) throw new Error(UNCONFIGURED)
 
@@ -122,7 +127,7 @@ export async function createPost(input: {
 
 export async function updatePost(
   id: string,
-  patch: { title?: string; body?: string; reply?: string },
+  patch: { title?: string; body?: string; images?: string[]; reply?: string },
 ): Promise<BoardPost> {
   if (!usingSupabase) throw new Error(UNCONFIGURED)
 

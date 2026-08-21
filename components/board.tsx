@@ -1,19 +1,27 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
+  Bold,
   Check,
+  ImagePlus,
+  Italic,
   Lock,
   MessageSquare,
   Pencil,
   Plus,
+  Subscript,
+  Superscript,
   Trash2,
+  Underline,
   X,
 } from 'lucide-react'
 import { useAuth } from './auth-provider'
 import { CategoryLabel } from './article-bits'
 import { LoginDialog } from './login-dialog'
+import { sanitizeRich } from '@/lib/rich-text'
+import { deleteUpload, uploadFile } from '@/lib/site-content'
 import {
   BOARDS,
   BOARD_CATEGORIES,
@@ -32,12 +40,35 @@ const FIELD =
 
 const LABEL = 'text-[11px] font-bold uppercase tracking-wider text-neutral-500'
 
-type Draft = { title: string; body: string }
+/** At most this many images per post — mirrors the server's own limit. */
+const MAX_IMAGES = 8
 
-const EMPTY: Draft = { title: '', body: '' }
+type Draft = { title: string; body: string; images: string[] }
+
+const EMPTY: Draft = { title: '', body: '', images: [] }
 
 function isCategory(value: string | null): value is BoardCategory {
   return value !== null && (BOARD_CATEGORIES as readonly string[]).includes(value)
+}
+
+/**
+ * The contentEditable body as a single sanitised HTML string. Enter yields a
+ * <div>/<p> block in the browser; those become <br> so the line breaks survive
+ * a round-trip through sanitizeRich, which keeps only bold/italic/underline and
+ * super/subscript. Leading and trailing breaks are trimmed off.
+ */
+function toStoredHtml(rawHtml: string): string {
+  const withBreaks = rawHtml
+    .replace(/<\/(?:div|p)>/gi, '')
+    .replace(/<(?:div|p)[^>]*>/gi, '<br>')
+  return sanitizeRich(withBreaks)
+    .replace(/^(?:\s|<br\s*\/?>)+/i, '')
+    .replace(/(?:\s|<br\s*\/?>)+$/i, '')
+}
+
+/** True when a rich body carries no text and no images — nothing to post. */
+function htmlIsBlank(html: string): boolean {
+  return html.replace(/<[^>]*>/g, '').replace(/[\s ]|&nbsp;/g, '').length === 0
 }
 
 export function Board() {
@@ -65,6 +96,7 @@ export function Board() {
   const [replyingId, setReplyingId] = useState<string | null>(null)
   const [replyDraft, setReplyDraft] = useState('')
   const [confirmId, setConfirmId] = useState<string | null>(null)
+  const [lightbox, setLightbox] = useState<string | null>(null)
 
   // Who may write here. Notices are the administrator's; the private boards
   // are for anyone signed in, including the administrator.
@@ -128,23 +160,33 @@ export function Board() {
 
   const saveEdit = (id: string) =>
     run(async () => {
+      // Images taken out of the post during this edit, dropped from storage
+      // only after the save lands — so a failed save leaves nothing pointing
+      // at a file that is already gone.
+      const before = posts.find((p) => p.id === id)?.images ?? []
       const post = await updatePost(id, editDraft)
       setPosts((prev) => prev.map((p) => (p.id === id ? post : p)))
       setEditingId(null)
+      before
+        .filter((src) => !editDraft.images.includes(src))
+        .forEach((src) => void deleteUpload(src))
     })
 
   const saveReply = (id: string) =>
     run(async () => {
-      const post = await updatePost(id, { reply: replyDraft })
+      const reply = htmlIsBlank(replyDraft) ? '' : replyDraft
+      const post = await updatePost(id, { reply })
       setPosts((prev) => prev.map((p) => (p.id === id ? post : p)))
       setReplyingId(null)
     })
 
   const remove = (id: string) =>
     run(async () => {
+      const gone = posts.find((p) => p.id === id)?.images ?? []
       await deletePost(id)
       setPosts((prev) => prev.filter((p) => p.id !== id))
       setConfirmId(null)
+      gone.forEach((src) => void deleteUpload(src))
     })
 
   const unanswered = useMemo(
@@ -245,15 +287,19 @@ export function Board() {
                 className={FIELD}
               />
             </label>
-            <label className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1.5">
               <span className={LABEL}>내용</span>
-              <textarea
-                value={draft.body}
-                onChange={(e) => setDraft({ ...draft, body: e.target.value })}
-                rows={8}
-                className={`${FIELD} resize-y leading-relaxed`}
+              <RichField
+                html={draft.body}
+                onChange={(body) => setDraft((d) => ({ ...d, body }))}
+                placeholder="내용을 입력하세요"
               />
-            </label>
+            </div>
+            <ImageAttach
+              images={draft.images}
+              onChange={(images) => setDraft((d) => ({ ...d, images }))}
+              disabled={busy}
+            />
             {isPrivate && (
               <p className="text-[13px] leading-relaxed text-neutral-500">
                 작성한 글은 관리자와 본인에게만 보입니다.
@@ -263,7 +309,7 @@ export function Board() {
           <footer className="flex flex-wrap items-center gap-2 border-t border-neutral-200 bg-panel/60 px-5 py-4">
             <PillButton
               onClick={submitPost}
-              disabled={busy || !draft.title.trim() || !draft.body.trim()}
+              disabled={busy || !draft.title.trim() || htmlIsBlank(draft.body)}
               tone="danger"
             >
               <Check className="size-4" />
@@ -381,19 +427,21 @@ export function Board() {
                           maxLength={200}
                           className={FIELD}
                         />
-                        <textarea
-                          value={editDraft.body}
-                          onChange={(e) =>
-                            setEditDraft({ ...editDraft, body: e.target.value })
-                          }
-                          rows={7}
-                          className={`${FIELD} resize-y leading-relaxed`}
+                        <RichField
+                          html={editDraft.body}
+                          onChange={(body) => setEditDraft((d) => ({ ...d, body }))}
+                          placeholder="내용을 입력하세요"
+                        />
+                        <ImageAttach
+                          images={editDraft.images}
+                          onChange={(images) => setEditDraft((d) => ({ ...d, images }))}
+                          disabled={busy}
                         />
                         <div className="flex items-center gap-2">
                           <PillButton
                             onClick={() => saveEdit(post.id)}
                             disabled={
-                              busy || !editDraft.title.trim() || !editDraft.body.trim()
+                              busy || !editDraft.title.trim() || htmlIsBlank(editDraft.body)
                             }
                             tone="primary"
                           >
@@ -406,9 +454,13 @@ export function Board() {
                         </div>
                       </div>
                     ) : (
-                      <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-neutral-700">
-                        {post.body}
-                      </p>
+                      <>
+                        <RichView html={post.body} />
+                        <AttachmentGallery
+                          images={post.images}
+                          onOpen={(src) => setLightbox(src)}
+                        />
+                      </>
                     )}
 
                     {/* The administrator's answer */}
@@ -418,21 +470,20 @@ export function Board() {
                           관리자 답변
                           {post.repliedAt && ` · ${formatPostDate(post.repliedAt)}`}
                         </p>
-                        <p className="mt-2 whitespace-pre-wrap text-[15px] leading-relaxed text-foreground">
-                          {post.reply}
-                        </p>
+                        <RichView
+                          html={post.reply}
+                          className="mt-2 text-foreground"
+                        />
                       </div>
                     )}
 
                     {replying && (
                       <div className="mt-5 flex flex-col gap-3 border-l-4 border-science-red bg-panel px-4 py-4">
                         <span className={LABEL}>관리자 답변</span>
-                        <textarea
-                          autoFocus
-                          value={replyDraft}
-                          onChange={(e) => setReplyDraft(e.target.value)}
-                          rows={5}
-                          className={`${FIELD} resize-y leading-relaxed`}
+                        <RichField
+                          html={replyDraft}
+                          onChange={setReplyDraft}
+                          placeholder="답변을 입력하세요"
                         />
                         <div className="flex items-center gap-2">
                           <PillButton
@@ -473,7 +524,11 @@ export function Board() {
                           <PillButton
                             onClick={() => {
                               setEditingId(post.id)
-                              setEditDraft({ title: post.title, body: post.body })
+                              setEditDraft({
+                                title: post.title,
+                                body: post.body,
+                                images: post.images,
+                              })
                             }}
                           >
                             <Pencil className="size-4" />
@@ -514,6 +569,7 @@ export function Board() {
         </ul>
       )}
 
+      {lightbox && <Lightbox src={lightbox} onClose={() => setLightbox(null)} />}
       <LoginDialog open={loginOpen} onClose={() => setLoginOpen(false)} />
     </>
   )
@@ -545,5 +601,241 @@ function PillButton({
     >
       {children}
     </button>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// The formatting the body editor offers, matching an article Overview: bold,
+// italic, underline, and super/subscript for ions and formulae (Na⁺, CO₂).
+const TOOLS = [
+  { cmd: 'bold', title: '굵게', icon: Bold },
+  { cmd: 'italic', title: '기울임', icon: Italic },
+  { cmd: 'underline', title: '밑줄', icon: Underline },
+  { cmd: 'superscript', title: '위 첨자', icon: Superscript },
+  { cmd: 'subscript', title: '아래 첨자', icon: Subscript },
+] as const
+
+// A rich-text body field. The DOM is seeded once, when the field mounts; after
+// that keystrokes flow one way (DOM → draft), the same as the Overview editor.
+// Writing the value back on every keystroke would reset the node and throw the
+// caret to the start.
+function RichField({
+  html,
+  onChange,
+  placeholder,
+}: {
+  html: string
+  onChange: (html: string) => void
+  placeholder?: string
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const seeded = useRef(false)
+
+  useEffect(() => {
+    if (ref.current && !seeded.current) {
+      ref.current.innerHTML = sanitizeRich(html || '')
+      seeded.current = true
+    }
+  }, [html])
+
+  return (
+    <div>
+      <div className="mb-2 flex flex-wrap items-center gap-1">
+        {TOOLS.map(({ cmd, title, icon: Icon }) => (
+          <button
+            key={cmd}
+            type="button"
+            title={title}
+            aria-label={title}
+            // Keep the caret in the body — a focus change would collapse the
+            // selection before execCommand runs.
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => document.execCommand(cmd, false)}
+            className="flex size-8 items-center justify-center rounded border border-neutral-300 bg-background text-neutral-600 transition-colors hover:border-foreground hover:text-foreground"
+          >
+            <Icon className="size-[14px]" />
+          </button>
+        ))}
+      </div>
+      <div
+        ref={ref}
+        contentEditable
+        suppressContentEditableWarning
+        role="textbox"
+        aria-multiline="true"
+        data-placeholder={placeholder}
+        onInput={(e) => onChange(toStoredHtml(e.currentTarget.innerHTML))}
+        onPaste={(e) => {
+          // Paste as plain text so pasted markup can't leak into the post.
+          e.preventDefault()
+          document.execCommand('insertText', false, e.clipboardData.getData('text/plain'))
+        }}
+        className={`${FIELD} min-h-[8rem] cursor-text leading-relaxed [&_sub]:align-sub [&_sup]:align-super empty:before:text-neutral-400 empty:before:content-[attr(data-placeholder)]`}
+      />
+    </div>
+  )
+}
+
+// Renders a stored body/reply. Always through sanitizeRich, never raw, so a
+// row that somehow held more than the editor allows still cannot inject markup.
+function RichView({ html, className = '' }: { html: string; className?: string }) {
+  return (
+    <div
+      className={`text-[15px] leading-relaxed text-neutral-700 [&_sub]:align-sub [&_sup]:align-super ${className}`}
+      dangerouslySetInnerHTML={{ __html: sanitizeRich(html) }}
+    />
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Attach images to a post. Each pick is uploaded once, straight to storage, and
+// only its URL travels with the post — the same flow the figure gallery uses.
+function ImageAttach({
+  images,
+  onChange,
+  disabled,
+}: {
+  images: string[]
+  onChange: (images: string[]) => void
+  disabled?: boolean
+}) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
+  const full = images.length >= MAX_IMAGES
+
+  async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    if (e.target) e.target.value = ''
+    if (!files.length) return
+    setError('')
+    setBusy(true)
+    try {
+      const room = MAX_IMAGES - images.length
+      const added: string[] = []
+      for (const file of files.slice(0, room)) {
+        added.push(await uploadFile(file))
+      }
+      onChange([...images, ...added])
+      if (files.length > room) {
+        setError(`이미지는 최대 ${MAX_IMAGES}장까지 첨부할 수 있습니다.`)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '업로드에 실패했습니다.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <span className={LABEL}>이미지 첨부</span>
+      {images.length > 0 && (
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+          {images.map((src, i) => (
+            <div
+              key={src}
+              className="group relative aspect-square overflow-hidden rounded border border-neutral-200 bg-panel"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={src} alt={`첨부 ${i + 1}`} className="size-full object-cover" />
+              <button
+                type="button"
+                onClick={() => onChange(images.filter((_, j) => j !== i))}
+                aria-label="이미지 삭제"
+                className="absolute right-1 top-1 inline-flex size-6 items-center justify-center rounded-full bg-background/90 text-neutral-600 shadow-sm transition-colors hover:text-science-red"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={onPick}
+        className="hidden"
+      />
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        disabled={disabled || busy || full}
+        className="inline-flex w-fit items-center gap-1.5 rounded-full border border-neutral-300 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-neutral-600 transition-colors hover:border-foreground hover:text-foreground disabled:opacity-50"
+      >
+        <ImagePlus className="size-4" />
+        {busy ? '올리는 중…' : full ? `최대 ${MAX_IMAGES}장` : '이미지 추가'}
+      </button>
+      {error && <p className="text-[13px] text-science-red">{error}</p>}
+    </div>
+  )
+}
+
+// A post's attached images, shown under its body. A tap opens one full size.
+function AttachmentGallery({
+  images,
+  onOpen,
+}: {
+  images: string[]
+  onOpen: (src: string) => void
+}) {
+  if (!images?.length) return null
+  return (
+    <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+      {images.map((src, i) => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          key={src}
+          src={src}
+          alt={`첨부 이미지 ${i + 1}`}
+          onClick={() => onOpen(src)}
+          className="h-40 w-full cursor-zoom-in rounded border border-neutral-200 bg-panel object-contain p-1 transition-transform duration-300 hover:scale-[1.02]"
+        />
+      ))}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Full-screen image zoom, closed by the backdrop, the button, or Escape.
+function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = ''
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [onClose])
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="닫기"
+        className="absolute right-4 top-4 inline-flex items-center gap-1 rounded bg-white/90 px-3 py-1.5 text-[12px] font-bold text-foreground transition-colors hover:bg-white"
+      >
+        <X className="size-[15px]" />
+        닫기 (Esc)
+      </button>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt="확대 이미지"
+        className="max-h-full max-w-full object-contain"
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>
   )
 }

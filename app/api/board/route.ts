@@ -22,23 +22,51 @@ import { sb, supabaseReady } from '@/lib/supabase-rest'
 // filed under someone else's name by editing a request body.
 
 const COLUMNS =
-  'id,category,title,body,author_username,author_name,reply,replied_at,created_at,updated_at'
+  'id,category,title,body,images,author_username,author_name,reply,replied_at,created_at,updated_at'
 
 /** How much of a post the table will accept, so one request cannot fill it. */
 const MAX_TITLE = 200
 const MAX_BODY = 20_000
+/** At most this many images per post, each URL no longer than this. */
+const MAX_IMAGES = 8
+const MAX_IMAGE_URL = 2000
 
 type Row = {
   id: string
   category: BoardCategory
   title: string
   body: string
+  images: string[] | null
   author_username: string
   author_name: string
   reply: string | null
   replied_at: string | null
   created_at: string
   updated_at: string
+}
+
+/**
+ * The attachment list a request may store. Only URLs this site would itself
+ * produce are kept — a Storage link, a same-origin path, or the data: URL used
+ * when Supabase is unset — so a request body cannot smuggle in a `javascript:`
+ * or off-site reference for the gallery to render. Returns null when the value
+ * is present but malformed, so the caller can reject the whole request.
+ */
+function cleanImages(value: unknown): string[] | null {
+  if (value === undefined) return []
+  if (!Array.isArray(value)) return null
+  const out: string[] = []
+  for (const item of value) {
+    if (typeof item !== 'string') return null
+    const s = item.trim()
+    if (!s) continue
+    if (s.length > MAX_IMAGE_URL) return null
+    if (!/^https?:\/\//i.test(s) && !s.startsWith('/') && !/^data:image\//i.test(s)) {
+      return null
+    }
+    out.push(s)
+  }
+  return out.length > MAX_IMAGES ? null : out
 }
 
 /**
@@ -56,6 +84,7 @@ function present(row: Row, viewer: string | null, isAdmin: boolean): BoardPost {
     category: row.category,
     title: row.title,
     body: row.body,
+    images: row.images ?? [],
     author: isAdmin || row.category === 'notice' ? row.author_name : mine ? '나' : '',
     authorUsername: isAdmin ? row.author_username : mine ? row.author_username : '',
     mine,
@@ -136,7 +165,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   if (!supabaseReady) return unconfigured()
 
-  let body: { category?: unknown; title?: unknown; body?: unknown }
+  let body: { category?: unknown; title?: unknown; body?: unknown; images?: unknown }
   try {
     body = await request.json()
   } catch {
@@ -149,7 +178,11 @@ export async function POST(request: Request) {
   const category = body.category
   const title = typeof body.title === 'string' ? body.title.trim() : ''
   const text = typeof body.body === 'string' ? body.body.trim() : ''
+  const images = cleanImages(body.images)
 
+  if (images === null) {
+    return NextResponse.json({ error: '첨부 이미지가 올바르지 않습니다.' }, { status: 400 })
+  }
   if (!title || !text) {
     return NextResponse.json({ error: '제목과 내용을 모두 입력하세요.' }, { status: 400 })
   }
@@ -185,6 +218,7 @@ export async function POST(request: Request) {
         category,
         title,
         body: text,
+        images,
         author_username: user,
         author_name: found?.[0]?.name ?? user,
       }),
@@ -206,7 +240,13 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   if (!supabaseReady) return unconfigured()
 
-  let body: { id?: unknown; title?: unknown; body?: unknown; reply?: unknown }
+  let body: {
+    id?: unknown
+    title?: unknown
+    body?: unknown
+    images?: unknown
+    reply?: unknown
+  }
   try {
     body = await request.json()
   } catch {
@@ -241,7 +281,9 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: '글을 찾을 수 없습니다.' }, { status: 404 })
     }
 
-    const patch: Record<string, string | null> = { updated_at: new Date().toISOString() }
+    const patch: Record<string, string | string[] | null> = {
+      updated_at: new Date().toISOString(),
+    }
 
     if (body.reply !== undefined) {
       const reply = typeof body.reply === 'string' ? body.reply.trim() : ''
@@ -253,7 +295,7 @@ export async function PATCH(request: Request) {
       patch.replied_at = reply ? new Date().toISOString() : null
     }
 
-    if (body.title !== undefined || body.body !== undefined) {
+    if (body.title !== undefined || body.body !== undefined || body.images !== undefined) {
       if (row.author_username !== user) {
         return NextResponse.json(
           { error: '남의 글은 수정할 수 없습니다.' },
@@ -273,6 +315,17 @@ export async function PATCH(request: Request) {
       }
       patch.title = title
       patch.body = text
+      if (body.images !== undefined) {
+        const images = cleanImages(body.images)
+        if (images === null) {
+          return NextResponse.json(
+            { error: '첨부 이미지가 올바르지 않습니다.' },
+            { status: 400 },
+          )
+        }
+        // PostgREST maps a JSON array to the text[] column directly.
+        patch.images = images
+      }
     }
 
     if (Object.keys(patch).length === 1) {
