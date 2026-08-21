@@ -82,12 +82,15 @@ export default async function PathwayPage({
         <EditablePathway category={category} pathway={pathway} />
 
         {/* Self-check quiz, on the same 12-column grid the article uses so it
-            lines up with the body column rather than the full page width. */}
-        <div className="grid grid-cols-1 gap-10 lg:grid-cols-12">
-          <div className="lg:col-span-8">
-            <PathwayQuiz path={quizKey} />
+            lines up with the body column rather than the full page width. A
+            document page carries no quiz — there is nothing to be tested on. */}
+        {!pathway.overviewOnly && (
+          <div className="grid grid-cols-1 gap-10 lg:grid-cols-12">
+            <div className="lg:col-span-8">
+              <PathwayQuiz path={quizKey} />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Depth-3 sub-topics */}
         {pathway.children.length > 0 && (

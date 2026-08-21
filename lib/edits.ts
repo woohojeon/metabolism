@@ -80,35 +80,12 @@ export function saveHomeHero(hero: HomeHero): Promise<void> {
   return saveContent(HERO_KEY, hero)
 }
 
-// The newspaper download card: its title and the PDF it hands out. One
-// document, shared the same way as everything else. Only the administrator
-// (jbnu) edits it; every visitor downloads whatever was last saved.
-
-export type Newspaper = {
-  title: string
-  /** A path under /public, or a URL from uploadFile once the PDF is replaced. */
-  pdf: string
-}
-
-// Still `home`, though the card now lives under Study Tips: the key is what a
-// saved row is found by, so renaming it would strand whichever PDF the
-// administrator has already uploaded and put the shipped default back in front
-// of every reader.
-export const NEWSPAPER_KEY = 'metabolism-home-newspaper'
-
-/** What the card shows before anyone has edited it. */
-export const publishedNewspaper: Newspaper = {
-  title: '수의생화학신문 (2026년)',
-  pdf: '/downloads/vet-biochem-news-2026.pdf',
-}
-
-export function loadNewspaper(): Promise<Newspaper | null> {
-  return loadContent<Newspaper>(NEWSPAPER_KEY)
-}
-
-export function saveNewspaper(data: Newspaper): Promise<void> {
-  return saveContent(NEWSPAPER_KEY, data)
-}
+// The newspaper had a download card of its own here, keyed
+// `metabolism-home-newspaper`. It is now handed out through the ordinary
+// lecture-slide card on its own page (lib/pathways.ts), so the card, its type
+// and its loaders are gone. The saved row is left where it is rather than
+// deleted — it still holds the PDF that was uploaded through it, and nothing
+// reads it now, so nothing depends on its shape either.
 
 // The instructor page: who is teaching the course and how to reach them. One
 // document, shared the same way as everything else. The portrait is not part of

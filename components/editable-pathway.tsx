@@ -173,11 +173,18 @@ export function EditablePathway({
   // A published section always shows. The administrator additionally sees the
   // editable sections even when empty, so content can be *added*, not only
   // changed. (Key Step keeps its own diagram/editor flow.)
+  //
+  // Except where the page is a document rather than a reaction: there the
+  // Overview and the slide card are the whole of it, and the empty Figures and
+  // Videos editors would be three headings of apparatus a newspaper does not
+  // have.
+  const bare = data.overviewOnly === true
   const hasOverview = data.overview.length > 0 || isAdmin
   const hasKeyStep =
-    Boolean(data.keyStepSvg) || data.steps.length > 0 || hasCanvas(data.keyStepCanvas)
-  const hasVideos = Boolean(data.videos?.length) || isAdmin
-  const hasFigures = Boolean(data.figures?.length) || isAdmin
+    !bare &&
+    (Boolean(data.keyStepSvg) || data.steps.length > 0 || hasCanvas(data.keyStepCanvas))
+  const hasVideos = !bare && (Boolean(data.videos?.length) || isAdmin)
+  const hasFigures = !bare && (Boolean(data.figures?.length) || isAdmin)
 
   // The lecture-slide card only claims the top-right grid slot when there is
   // actually a card to show — a published PDF, or the administrator's upload

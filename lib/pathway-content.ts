@@ -230,7 +230,7 @@ export const pathwayContent: Record<string, PathwayContent> = {
   "metabolism/vetbiochemistry-newspaper": {
     overview: [
       `수의생화학신문은 한 학기 동안 다룬 대사 경로를 신문의 형식으로 엮어 정리한 자료이다. 강의에서 경로별로 나누어 배운 내용을 한자리에 모아 놓았기 때문에, 개별 반응을 따라가다 놓치기 쉬운 경로 사이의 연결을 한눈에 확인하는 데 쓰인다.`,
-      `아래에서 전체 지면을 PDF로 내려받을 수 있다. 파일은 로그인한 수강생에게만 제공된다.`,
+      `전체 지면은 Lecture Slides 카드에서 PDF로 열어 보거나 내려받을 수 있다. 파일은 로그인한 수강생에게만 제공된다.`,
     ],
   },
 

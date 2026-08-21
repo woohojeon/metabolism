@@ -24,6 +24,11 @@ export type Pathway = {
   videos?: Video[]
   // Supplementary figure images (paths under /public), shown as a gallery.
   figures?: string[]
+  // Publish an Overview and the lecture slides, and nothing else — no key-step
+  // diagram, figure gallery, videos or quiz, not even the empty editors the
+  // administrator is otherwise offered. For a page that is a document rather
+  // than a reaction, and so has no apparatus to show.
+  overviewOnly?: boolean
   // Depth-3 sub-topics (mirrors the structure/ folder hierarchy).
   children: Pathway[]
 }
@@ -139,7 +144,8 @@ export const categories: Category[] = [
     image: '/images/metabolism.png',
     items: [
       ['Metabolism', ['Catabolism', 'Anabolism']],
-      ['Study Tips for Metabolism', ['Vetbiochemistry Newspaper']],
+      'Study Tips for Metabolism',
+      'Vetbiochemistry Newspaper',
     ],
   }),
   cat({
@@ -228,19 +234,14 @@ export const categories: Category[] = [
   }),
 ]
 
-/**
- * The one page that carries the newspaper download card.
- *
- * It used to sit on the home page, above the hero. It is course material like
- * everything else, so it now lives where the rest of the material does — under
- * Study Tips — and the landing page is left to introduce the course.
- */
-export const NEWSPAPER_PATH =
-  'metabolism/study-tips-for-metabolism/vetbiochemistry-newspaper'
+// Pages that publish an Overview and the PDF alone. See `overviewOnly` above.
+const overviewOnlyPages = new Set(['metabolism/vetbiochemistry-newspaper'])
 
 // Lecture-slide PDFs, keyed by `${categorySlug}/${pathwaySlug}`.
 const pathwaySlidesPdf: Record<string, string> = {
   'carbohydrate-metabolism/glycolysis': '/downloads/glycolysis.pdf',
+  // The newspaper is handed out through the slide card like any other reading.
+  'metabolism/vetbiochemistry-newspaper': '/downloads/vet-biochem-news-2026.pdf',
 }
 
 // Supplementary YouTube lectures, keyed by `${categorySlug}/${pathwaySlug}`.
@@ -289,6 +290,7 @@ function injectContent(p: Pathway, categorySlug: string) {
     p.overview = content.overview
     if (content.keyStepSvg) p.keyStepSvg = content.keyStepSvg
   }
+  if (overviewOnlyPages.has(key)) p.overviewOnly = true
   if (pathwaySlidesPdf[key]) p.slidesPdf = pathwaySlidesPdf[key]
   if (pathwayVideos[key]) p.videos = pathwayVideos[key]
   if (pathwayFigures[key]) p.figures = pathwayFigures[key]
