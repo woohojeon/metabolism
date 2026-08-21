@@ -11,9 +11,9 @@ export const metadata = {
 
 export default function BoardPage() {
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground">
       <SiteHeader />
-      <main className="mx-auto w-full max-w-[880px] flex-1 px-4 py-8 lg:px-6">
+      <main className="mx-auto w-full max-w-[880px] px-4 py-8 lg:px-6">
         <nav className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">
           <Link href="/" className="transition-colors hover:text-science-red">
             Home

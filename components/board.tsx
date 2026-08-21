@@ -335,7 +335,7 @@ export function Board() {
 
       {/* A private board, to someone who has not signed in */}
       {needsSignIn ? (
-        <div className="mx-auto max-w-[520px] py-16 text-center">
+        <div className="mx-auto flex min-h-[60vh] max-w-[520px] flex-col justify-center py-16 text-center">
           <span className="inline-flex size-14 items-center justify-center rounded-full bg-panel">
             <Lock className="size-6 text-science-red" />
           </span>
@@ -355,7 +355,7 @@ export function Board() {
           </button>
         </div>
       ) : loading ? (
-        <ul className="mt-2">
+        <ul className="mt-2 min-h-[60vh]">
           {Array.from({ length: 4 }).map((_, i) => (
             <li key={i} className="border-b border-neutral-200 px-3 py-5">
               <div className="h-4 w-2/3 animate-pulse rounded bg-panel" />
@@ -364,7 +364,7 @@ export function Board() {
           ))}
         </ul>
       ) : posts.length === 0 ? (
-        <div className="flex flex-col items-center py-20 text-center">
+        <div className="flex min-h-[60vh] flex-col items-center justify-center py-20 text-center">
           <span className="inline-flex size-14 items-center justify-center rounded-full bg-panel">
             <MessageSquare className="size-6 text-neutral-400" />
           </span>
@@ -378,7 +378,7 @@ export function Board() {
           </p>
         </div>
       ) : (
-        <ul className="mt-2">
+        <ul className="mt-2 min-h-[60vh]">
           {posts.map((post) => {
             const open = openId === post.id
             const editing = editingId === post.id
