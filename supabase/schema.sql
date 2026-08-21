@@ -70,17 +70,21 @@ create table if not exists public.board_posts (
   images          text[] not null default '{}',
   author_username text not null,
   author_name     text not null default '',
-  -- The administrator's answer, shown under the post to its author.
+  -- The administrator's answer, shown under the post to its author, with its
+  -- own attached images.
   reply           text,
+  reply_images    text[] not null default '{}',
   replied_at      timestamptz,
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
 );
 
--- Adds the image column to a board_posts table created before it existed.
--- Safe to run again; a no-op once the column is there.
+-- Adds the image columns to a board_posts table created before they existed.
+-- Safe to run again; a no-op once the columns are there.
 alter table public.board_posts
   add column if not exists images text[] not null default '{}';
+alter table public.board_posts
+  add column if not exists reply_images text[] not null default '{}';
 
 -- Every list is "this category, newest first".
 create index if not exists board_posts_category_created_idx

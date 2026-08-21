@@ -22,7 +22,7 @@ import { sb, supabaseReady } from '@/lib/supabase-rest'
 // filed under someone else's name by editing a request body.
 
 const COLUMNS =
-  'id,category,title,body,images,author_username,author_name,reply,replied_at,created_at,updated_at'
+  'id,category,title,body,images,author_username,author_name,reply,reply_images,replied_at,created_at,updated_at'
 
 /** How much of a post the table will accept, so one request cannot fill it. */
 const MAX_TITLE = 200
@@ -40,6 +40,7 @@ type Row = {
   author_username: string
   author_name: string
   reply: string | null
+  reply_images: string[] | null
   replied_at: string | null
   created_at: string
   updated_at: string
@@ -89,6 +90,7 @@ function present(row: Row, viewer: string | null, isAdmin: boolean): BoardPost {
     authorUsername: isAdmin ? row.author_username : mine ? row.author_username : '',
     mine,
     reply: row.reply,
+    replyImages: row.reply_images ?? [],
     repliedAt: row.replied_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -246,6 +248,7 @@ export async function PATCH(request: Request) {
     body?: unknown
     images?: unknown
     reply?: unknown
+    replyImages?: unknown
   }
   try {
     body = await request.json()
@@ -290,8 +293,17 @@ export async function PATCH(request: Request) {
       if (reply.length > MAX_BODY) {
         return NextResponse.json({ error: '답변이 너무 깁니다.' }, { status: 400 })
       }
-      // An emptied box removes the answer rather than storing a blank one.
+      const replyImages = cleanImages(body.replyImages)
+      if (replyImages === null) {
+        return NextResponse.json(
+          { error: '첨부 이미지가 올바르지 않습니다.' },
+          { status: 400 },
+        )
+      }
+      // An emptied box removes the answer rather than storing a blank one; its
+      // images go with it, so a cleared reply never leaves orphaned pictures.
       patch.reply = reply || null
+      patch.reply_images = reply ? replyImages : []
       patch.replied_at = reply ? new Date().toISOString() : null
     }
 

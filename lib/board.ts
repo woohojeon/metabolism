@@ -68,6 +68,8 @@ export type BoardPost = {
   mine: boolean
   /** The administrator's answer, or null. */
   reply: string | null
+  /** Images attached to the administrator's answer. */
+  replyImages: string[]
   repliedAt: string | null
   createdAt: string
   updatedAt: string
@@ -127,7 +129,13 @@ export async function createPost(input: {
 
 export async function updatePost(
   id: string,
-  patch: { title?: string; body?: string; images?: string[]; reply?: string },
+  patch: {
+    title?: string
+    body?: string
+    images?: string[]
+    reply?: string
+    replyImages?: string[]
+  },
 ): Promise<BoardPost> {
   if (!usingSupabase) throw new Error(UNCONFIGURED)
 

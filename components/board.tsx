@@ -97,6 +97,7 @@ export function Board() {
   const [editDraft, setEditDraft] = useState<Draft>(EMPTY)
   const [replyingId, setReplyingId] = useState<string | null>(null)
   const [replyDraft, setReplyDraft] = useState('')
+  const [replyImages, setReplyImages] = useState<string[]>([])
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [lightbox, setLightbox] = useState<string | null>(null)
 
@@ -128,6 +129,7 @@ export function Board() {
     setComposing(false)
     setEditingId(null)
     setReplyingId(null)
+    setReplyImages([])
     setConfirmId(null)
     void refresh()
   }, [ready, user, isAdmin, refresh])
@@ -176,15 +178,22 @@ export function Board() {
 
   const saveReply = (id: string) =>
     run(async () => {
+      const before = posts.find((p) => p.id === id)?.replyImages ?? []
       const reply = htmlIsBlank(replyDraft) ? '' : replyDraft
-      const post = await updatePost(id, { reply })
+      // A cleared answer takes its images with it.
+      const nextImages = reply ? replyImages : []
+      const post = await updatePost(id, { reply, replyImages: nextImages })
       setPosts((prev) => prev.map((p) => (p.id === id ? post : p)))
       setReplyingId(null)
+      before
+        .filter((src) => !nextImages.includes(src))
+        .forEach((src) => void deleteUpload(src))
     })
 
   const remove = (id: string) =>
     run(async () => {
-      const gone = posts.find((p) => p.id === id)?.images ?? []
+      const target = posts.find((p) => p.id === id)
+      const gone = [...(target?.images ?? []), ...(target?.replyImages ?? [])]
       await deletePost(id)
       setPosts((prev) => prev.filter((p) => p.id !== id))
       setConfirmId(null)
@@ -494,6 +503,10 @@ export function Board() {
                           html={post.reply}
                           className="mt-2 text-foreground"
                         />
+                        <AttachmentGallery
+                          images={post.replyImages}
+                          onOpen={(src) => setLightbox(src)}
+                        />
                       </div>
                     )}
 
@@ -504,6 +517,11 @@ export function Board() {
                           html={replyDraft}
                           onChange={setReplyDraft}
                           placeholder="답변을 입력하세요"
+                        />
+                        <ImageAttach
+                          images={replyImages}
+                          onChange={setReplyImages}
+                          disabled={busy}
                         />
                         <div className="flex items-center gap-2">
                           <PillButton
@@ -534,6 +552,7 @@ export function Board() {
                             onClick={() => {
                               setReplyingId(post.id)
                               setReplyDraft(post.reply ?? '')
+                              setReplyImages(post.replyImages)
                             }}
                           >
                             <MessageSquare className="size-4" />
