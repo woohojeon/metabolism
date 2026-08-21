@@ -178,11 +178,8 @@ export function SiteHeader() {
                 className="group flex items-baseline gap-2 border-b border-neutral-200 pb-2"
               >
                 <h3 className="text-[14px] font-extrabold uppercase tracking-wide text-foreground transition-colors group-hover:text-science-red">
-                  게시판
-                </h3>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
                   Board
-                </span>
+                </h3>
               </Link>
               <ul className="mt-2 flex flex-col">
                 {BOARD_CATEGORIES.map((slug) => (
@@ -192,7 +189,7 @@ export function SiteHeader() {
                       onClick={() => setMenuOpen(false)}
                       className="block py-2.5 text-[13px] leading-snug text-neutral-600 transition-colors hover:text-science-red sm:py-1.5"
                     >
-                      {BOARDS[slug].name}
+                      {BOARDS[slug].english}
                     </Link>
                   </li>
                 ))}

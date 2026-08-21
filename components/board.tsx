@@ -158,7 +158,7 @@ export function Board() {
     <>
       {/* Masthead */}
       <header className="border-b border-neutral-200 pb-6">
-        <CategoryLabel>{board.kicker}</CategoryLabel>
+        <CategoryLabel>{board.english}</CategoryLabel>
         <h1 className="mt-1 text-4xl font-extrabold leading-tight sm:text-5xl">
           게시판
         </h1>
