@@ -15,7 +15,7 @@ import {
   type BoardCategory,
   type BoardPost,
 } from '@/lib/board'
-import { sb, storagePathOf, supabaseReady } from '@/lib/supabase-rest'
+import { sb, sbDelete, storagePathOf, supabaseReady } from '@/lib/supabase-rest'
 
 // The three boards. What separates them is not their shape but who may read
 // them, and that is decided here — never in the browser, and never by a
@@ -112,6 +112,41 @@ function cleanFiles(value: unknown): BoardAttachment[] | null {
     out.push({ name: name.replace(FILENAME_HOSTILE, '_').slice(0, 200), url, size })
   }
   return out
+}
+
+/** Every upload a post points at — pictures, documents, and the answer's. */
+function filesOf(row: Row): string[] {
+  return [
+    ...(row.images ?? []),
+    ...(row.reply_images ?? []),
+    ...(row.files ?? []).map((f) => f.url),
+  ]
+}
+
+/**
+ * Drops uploads a post no longer points at.
+ *
+ * Here rather than in the browser, because deleting is the one thing the
+ * uploads bucket cannot let a student ask for by URL: signing in would then be
+ * enough to remove the slides, the newspaper, or somebody else's picture. This
+ * route has already worked out that the caller owns the post, so it is the one
+ * place that can say which files are theirs to lose.
+ *
+ * Best effort, and always after the row is written: a file left behind costs a
+ * little storage, while one removed ahead of a save that then fails leaves a
+ * post pointing at nothing.
+ */
+async function dropUploads(urls: string[]) {
+  for (const url of urls) {
+    const path = storagePathOf(url)
+    if (!path) continue
+    try {
+      await sbDelete(path)
+    } catch {
+      // Already gone, or storage is unhappy. Neither changes what the caller
+      // asked for, which was to change the post.
+    }
+  }
 }
 
 /**
@@ -426,6 +461,10 @@ export async function PATCH(request: Request) {
       body: JSON.stringify(patch),
     })) as Row[]
 
+    // Only now that the post no longer points at them.
+    const kept = new Set(filesOf(rows[0]))
+    await dropUploads(filesOf(row).filter((url) => !kept.has(url)))
+
     return NextResponse.json(present(rows[0], user, isAdmin))
   } catch {
     return oops()
@@ -454,6 +493,7 @@ export async function DELETE(request: Request) {
     }
 
     await sb(`board_posts?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' })
+    await dropUploads(filesOf(row))
     return NextResponse.json({ ok: true })
   } catch {
     return oops()

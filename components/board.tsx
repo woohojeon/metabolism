@@ -28,7 +28,7 @@ import { useAuth } from './auth-provider'
 import { CategoryLabel } from './article-bits'
 import { LoginDialog } from './login-dialog'
 import { sanitizeRich } from '@/lib/rich-text'
-import { deleteUpload, uploadFile } from '@/lib/site-content'
+import { uploadFile } from '@/lib/site-content'
 import {
   BOARDS,
   BOARD_CATEGORIES,
@@ -178,46 +178,32 @@ export function Board() {
 
   const saveEdit = (id: string) =>
     run(async () => {
-      // Anything taken out of the post during this edit — a picture or a
-      // document — dropped from storage only after the save lands, so a failed
-      // save leaves nothing pointing at a file that is already gone.
-      const target = posts.find((p) => p.id === id)
-      const before = [
-        ...(target?.images ?? []),
-        ...(target?.files ?? []).map((f) => f.url),
-      ]
-      const kept = [...editDraft.images, ...editDraft.files.map((f) => f.url)]
+      // Anything taken out of the post during this edit is dropped from
+      // storage by /api/board once the save lands: deleting an upload is not
+      // something the browser may ask for by URL, since signing in would then
+      // be enough to remove somebody else's picture.
       const post = await updatePost(id, editDraft)
       setPosts((prev) => prev.map((p) => (p.id === id ? post : p)))
       setEditingId(null)
-      before.filter((src) => !kept.includes(src)).forEach((src) => void deleteUpload(src))
     })
 
   const saveReply = (id: string) =>
     run(async () => {
-      const before = posts.find((p) => p.id === id)?.replyImages ?? []
       const reply = htmlIsBlank(replyDraft) ? '' : replyDraft
-      // A cleared answer takes its images with it.
-      const nextImages = reply ? replyImages : []
-      const post = await updatePost(id, { reply, replyImages: nextImages })
+      // A cleared answer takes its images with it, dropped server-side.
+      const post = await updatePost(id, {
+        reply,
+        replyImages: reply ? replyImages : [],
+      })
       setPosts((prev) => prev.map((p) => (p.id === id ? post : p)))
       setReplyingId(null)
-      before
-        .filter((src) => !nextImages.includes(src))
-        .forEach((src) => void deleteUpload(src))
     })
 
   const remove = (id: string) =>
     run(async () => {
-      const target = posts.find((p) => p.id === id)
-      const gone = [
-        ...(target?.images ?? []),
-        ...(target?.replyImages ?? []),
-        ...(target?.files ?? []).map((f) => f.url),
-      ]
+      // The post's uploads go with it, dropped by the route that deletes it.
       await deletePost(id)
       setPosts((prev) => prev.filter((p) => p.id !== id))
-      gone.forEach((src) => void deleteUpload(src))
     })
 
   // A single red button that asks before it acts, rather than swapping the row

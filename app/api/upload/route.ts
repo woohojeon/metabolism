@@ -1,16 +1,54 @@
 import { randomUUID } from 'node:crypto'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { ADMIN_COOKIE, isAdminSession } from '@/lib/admin-session'
+import {
+  ADMIN_COOKIE,
+  USER_COOKIE,
+  isAdminSession,
+  readUserSession,
+} from '@/lib/admin-session'
 import { sbDelete, sbSignedUpload, storagePathOf, supabaseReady } from '@/lib/supabase-rest'
 
 // Hands an edit control somewhere to put one file, and the URL that file will
 // be served from afterwards, so the caller can store that string instead of a
-// data: URL. Administrator only, for the same reason as /api/content: an
-// upload is visible to everyone.
+// data: URL.
+//
+// Signing in is enough to upload, because a student attaching a photograph to
+// a question — the screen they are stuck on, the page of the textbook — is the
+// board working as intended. What signing in does not buy is a free hand with
+// the bucket: a student may put up an image and nothing else, while the
+// administrator, who also replaces slides and hands out 한글 and PDF files,
+// may put up anything. A visitor who is signed in to nothing may put up
+// nothing at all.
 //
 // The file itself never comes through here — see sbSignedUpload for why. This
 // route only ever carries a filename and a pair of URLs.
+
+/**
+ * What a signed-in student may upload. The bucket is public and served from
+ * the course's own address, so the one thing the board asks of them — a
+ * picture — is the one thing this list holds.
+ */
+// accept="image/*" in the picker is wider than this on purpose: it is the
+// list the server will stand behind, so it holds everything a phone or a
+// screenshot produces. .svg is left out — it is a document that can carry
+// script, not a picture.
+const IMAGE_EXTENSIONS = [
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.jfif',
+  '.pjp',
+  '.gif',
+  '.bmp',
+  '.tif',
+  '.tiff',
+  '.webp',
+  '.avif',
+  '.apng',
+  '.heic',
+  '.heif',
+]
 
 /** Keeps the stored name predictable regardless of what was uploaded. */
 function extensionOf(name: string) {
@@ -26,8 +64,10 @@ export async function POST(request: Request) {
   }
 
   const jar = await cookies()
-  if (!isAdminSession(jar.get(ADMIN_COOKIE)?.value)) {
-    return NextResponse.json({ error: '관리자 권한이 필요합니다.' }, { status: 403 })
+  const isAdmin = isAdminSession(jar.get(ADMIN_COOKIE)?.value)
+  const user = readUserSession(jar.get(USER_COOKIE)?.value)
+  if (!isAdmin && !user) {
+    return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 })
   }
 
   let filename: unknown
@@ -41,9 +81,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: '파일 이름이 필요합니다.' }, { status: 400 })
   }
 
+  const extension = extensionOf(filename)
+  if (!isAdmin && !IMAGE_EXTENSIONS.includes(extension)) {
+    return NextResponse.json({ error: '이미지 파일만 올릴 수 있습니다.' }, { status: 403 })
+  }
+
   // A fresh name every time, so an upload can never overwrite an earlier one
   // and no caller has to think about collisions.
-  const path = `${randomUUID()}${extensionOf(filename)}`
+  const path = `${randomUUID()}${extension}`
 
   try {
     return NextResponse.json(await sbSignedUpload(path))
