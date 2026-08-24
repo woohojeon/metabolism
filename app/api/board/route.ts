@@ -6,8 +6,16 @@ import {
   isAdminSession,
   readUserSession,
 } from '@/lib/admin-session'
-import { BOARD_CATEGORIES, type BoardCategory, type BoardPost } from '@/lib/board'
-import { sb, supabaseReady } from '@/lib/supabase-rest'
+import {
+  BOARD_CATEGORIES,
+  MAX_FILES,
+  MAX_FILE_BYTES,
+  hasAllowedExtension,
+  type BoardAttachment,
+  type BoardCategory,
+  type BoardPost,
+} from '@/lib/board'
+import { sb, storagePathOf, supabaseReady } from '@/lib/supabase-rest'
 
 // The three boards. What separates them is not their shape but who may read
 // them, and that is decided here — never in the browser, and never by a
@@ -22,11 +30,14 @@ import { sb, supabaseReady } from '@/lib/supabase-rest'
 // filed under someone else's name by editing a request body.
 
 const COLUMNS =
-  'id,category,title,body,images,author_username,author_name,reply,reply_images,replied_at,created_at,updated_at'
+  'id,category,title,body,images,files,author_username,author_name,reply,reply_images,replied_at,created_at,updated_at'
 
 /** How much of a post the table will accept, so one request cannot fill it. */
 const MAX_TITLE = 200
 const MAX_BODY = 20_000
+/** Separators and line ends, which a download filename must not carry. */
+const FILENAME_HOSTILE = /[\\/\r\n]/g
+
 /** At most this many images per post, each URL no longer than this. */
 const MAX_IMAGES = 8
 const MAX_IMAGE_URL = 2000
@@ -37,6 +48,7 @@ type Row = {
   title: string
   body: string
   images: string[] | null
+  files: BoardAttachment[] | null
   author_username: string
   author_name: string
   reply: string | null
@@ -71,6 +83,38 @@ function cleanImages(value: unknown): string[] | null {
 }
 
 /**
+ * The document list a request may store.
+ *
+ * Stricter than cleanImages, because a document is handed straight back out as
+ * a download: every URL has to be one this site's own /api/upload signed, which
+ * is what `storagePathOf` answers, so a post cannot be turned into a link to
+ * somewhere else under the course's name. The extension is checked again here —
+ * the browser's file picker is a convenience, not a rule — and the name is kept
+ * only for the download, so the parts of a path and the newline that would end
+ * a header are taken out of it.
+ *
+ * Returns null when the value is present but malformed, as cleanImages does.
+ */
+function cleanFiles(value: unknown): BoardAttachment[] | null {
+  if (value === undefined) return []
+  if (!Array.isArray(value) || value.length > MAX_FILES) return null
+
+  const out: BoardAttachment[] = []
+  for (const item of value) {
+    const name = typeof item?.name === 'string' ? item.name.trim() : ''
+    const url = typeof item?.url === 'string' ? item.url : ''
+    const size = typeof item?.size === 'number' ? item.size : 0
+
+    if (!name || !hasAllowedExtension(name)) return null
+    if (!storagePathOf(url)) return null
+    if (size < 0 || size > MAX_FILE_BYTES) return null
+
+    out.push({ name: name.replace(FILENAME_HOSTILE, '_').slice(0, 200), url, size })
+  }
+  return out
+}
+
+/**
  * What the browser is given.
  *
  * `mine` rather than a raw username: the author of a post is not something a
@@ -86,6 +130,7 @@ function present(row: Row, viewer: string | null, isAdmin: boolean): BoardPost {
     title: row.title,
     body: row.body,
     images: row.images ?? [],
+    files: row.files ?? [],
     author: isAdmin || row.category === 'notice' ? row.author_name : mine ? '나' : '',
     authorUsername: isAdmin ? row.author_username : mine ? row.author_username : '',
     mine,
@@ -170,7 +215,13 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   if (!supabaseReady) return unconfigured()
 
-  let body: { category?: unknown; title?: unknown; body?: unknown; images?: unknown }
+  let body: {
+    category?: unknown
+    title?: unknown
+    body?: unknown
+    images?: unknown
+    files?: unknown
+  }
   try {
     body = await request.json()
   } catch {
@@ -184,9 +235,13 @@ export async function POST(request: Request) {
   const title = typeof body.title === 'string' ? body.title.trim() : ''
   const text = typeof body.body === 'string' ? body.body.trim() : ''
   const images = cleanImages(body.images)
+  const files = cleanFiles(body.files)
 
   if (images === null) {
     return NextResponse.json({ error: '첨부 이미지가 올바르지 않습니다.' }, { status: 400 })
+  }
+  if (files === null) {
+    return NextResponse.json({ error: '첨부파일이 올바르지 않습니다.' }, { status: 400 })
   }
   if (!title || !text) {
     return NextResponse.json({ error: '제목과 내용을 모두 입력하세요.' }, { status: 400 })
@@ -224,6 +279,7 @@ export async function POST(request: Request) {
         title,
         body: text,
         images,
+        files,
         author_username: user,
         author_name: found?.[0]?.name ?? user,
       }),
@@ -250,6 +306,7 @@ export async function PATCH(request: Request) {
     title?: unknown
     body?: unknown
     images?: unknown
+    files?: unknown
     reply?: unknown
     replyImages?: unknown
   }
@@ -287,7 +344,9 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: '글을 찾을 수 없습니다.' }, { status: 404 })
     }
 
-    const patch: Record<string, string | string[] | null> = {
+    // `unknown` in the value: images map to a text[] column and files to jsonb,
+    // and PostgREST takes both as the arrays they already are.
+    const patch: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     }
 
@@ -310,7 +369,12 @@ export async function PATCH(request: Request) {
       patch.replied_at = reply ? new Date().toISOString() : null
     }
 
-    if (body.title !== undefined || body.body !== undefined || body.images !== undefined) {
+    if (
+      body.title !== undefined ||
+      body.body !== undefined ||
+      body.images !== undefined ||
+      body.files !== undefined
+    ) {
       if (row.author_username !== user) {
         return NextResponse.json(
           { error: '남의 글은 수정할 수 없습니다.' },
@@ -340,6 +404,16 @@ export async function PATCH(request: Request) {
         }
         // PostgREST maps a JSON array to the text[] column directly.
         patch.images = images
+      }
+      if (body.files !== undefined) {
+        const files = cleanFiles(body.files)
+        if (files === null) {
+          return NextResponse.json(
+            { error: '첨부파일이 올바르지 않습니다.' },
+            { status: 400 },
+          )
+        }
+        patch.files = files
       }
     }
 

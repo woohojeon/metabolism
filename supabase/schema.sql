@@ -68,6 +68,12 @@ create table if not exists public.board_posts (
   -- body itself is a small subset of HTML — bold/italic/underline and
   -- super/subscripts, the same as an article Overview — sanitised on render.
   images          text[] not null default '{}',
+  -- Documents hung off a post: the 한글(.hwp/.hwpx) and PDF handouts a 공지사항
+  -- refers to. A jsonb list of { name, url, size } rather than a second text[],
+  -- because a download needs the name it saves back under and the size a reader
+  -- decides from. `url` always points into the uploads bucket; /api/board
+  -- refuses any other address.
+  files           jsonb not null default '[]'::jsonb,
   author_username text not null,
   author_name     text not null default '',
   -- The administrator's answer, shown under the post to its author, with its
@@ -79,12 +85,14 @@ create table if not exists public.board_posts (
   updated_at      timestamptz not null default now()
 );
 
--- Adds the image columns to a board_posts table created before they existed.
--- Safe to run again; a no-op once the columns are there.
+-- Adds the attachment columns to a board_posts table created before they
+-- existed. Safe to run again; a no-op once the columns are there.
 alter table public.board_posts
   add column if not exists images text[] not null default '{}';
 alter table public.board_posts
   add column if not exists reply_images text[] not null default '{}';
+alter table public.board_posts
+  add column if not exists files jsonb not null default '[]'::jsonb;
 
 -- Every list is "this category, newest first".
 create index if not exists board_posts_category_created_idx

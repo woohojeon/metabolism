@@ -8,6 +8,8 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Download,
+  FileText,
   ImagePlus,
   Italic,
   Lock,
@@ -19,6 +21,7 @@ import {
   Superscript,
   Trash2,
   Underline,
+  Upload,
   X,
 } from 'lucide-react'
 import { useAuth } from './auth-provider'
@@ -29,15 +32,21 @@ import { deleteUpload, uploadFile } from '@/lib/site-content'
 import {
   BOARDS,
   BOARD_CATEGORIES,
+  BOARD_FILE_ACCEPT,
+  MAX_FILES,
   NeedsSignInError,
   createPost,
   deletePost,
+  formatFileSize,
   formatPostDate,
   listPosts,
   updatePost,
+  uploadBoardFile,
+  type BoardAttachment,
   type BoardCategory,
   type BoardPost,
 } from '@/lib/board'
+import { downloadUrl } from '@/lib/download-url'
 
 const FIELD =
   'w-full rounded-md border border-neutral-300 bg-background px-3 py-2 text-[15px] outline-none transition-colors focus:border-foreground'
@@ -50,9 +59,9 @@ const MAX_IMAGES = 8
 /** Posts shown per page. */
 const PAGE_SIZE = 10
 
-type Draft = { title: string; body: string; images: string[] }
+type Draft = { title: string; body: string; images: string[]; files: BoardAttachment[] }
 
-const EMPTY: Draft = { title: '', body: '', images: [] }
+const EMPTY: Draft = { title: '', body: '', images: [], files: [] }
 
 function isCategory(value: string | null): value is BoardCategory {
   return value !== null && (BOARD_CATEGORIES as readonly string[]).includes(value)
@@ -169,16 +178,19 @@ export function Board() {
 
   const saveEdit = (id: string) =>
     run(async () => {
-      // Images taken out of the post during this edit, dropped from storage
-      // only after the save lands — so a failed save leaves nothing pointing
-      // at a file that is already gone.
-      const before = posts.find((p) => p.id === id)?.images ?? []
+      // Anything taken out of the post during this edit — a picture or a
+      // document — dropped from storage only after the save lands, so a failed
+      // save leaves nothing pointing at a file that is already gone.
+      const target = posts.find((p) => p.id === id)
+      const before = [
+        ...(target?.images ?? []),
+        ...(target?.files ?? []).map((f) => f.url),
+      ]
+      const kept = [...editDraft.images, ...editDraft.files.map((f) => f.url)]
       const post = await updatePost(id, editDraft)
       setPosts((prev) => prev.map((p) => (p.id === id ? post : p)))
       setEditingId(null)
-      before
-        .filter((src) => !editDraft.images.includes(src))
-        .forEach((src) => void deleteUpload(src))
+      before.filter((src) => !kept.includes(src)).forEach((src) => void deleteUpload(src))
     })
 
   const saveReply = (id: string) =>
@@ -198,7 +210,11 @@ export function Board() {
   const remove = (id: string) =>
     run(async () => {
       const target = posts.find((p) => p.id === id)
-      const gone = [...(target?.images ?? []), ...(target?.replyImages ?? [])]
+      const gone = [
+        ...(target?.images ?? []),
+        ...(target?.replyImages ?? []),
+        ...(target?.files ?? []).map((f) => f.url),
+      ]
       await deletePost(id)
       setPosts((prev) => prev.filter((p) => p.id !== id))
       gone.forEach((src) => void deleteUpload(src))
@@ -341,6 +357,13 @@ export function Board() {
               onChange={(images) => setDraft((d) => ({ ...d, images }))}
               disabled={busy}
             />
+            {isAdmin && (
+              <FileAttach
+                files={draft.files}
+                onChange={(files) => setDraft((d) => ({ ...d, files }))}
+                disabled={busy}
+              />
+            )}
             {isPrivate && (
               <p className="text-[13px] leading-relaxed text-neutral-500">
                 작성한 글은 관리자와 본인에게만 보입니다.
@@ -449,13 +472,13 @@ export function Board() {
                           )}
                         </span>
                       )}
-                      {post.images.length > 0 && (
+                      {post.images.length + post.files.length > 0 && (
                         <span
                           className="inline-flex items-center gap-1 text-[11px] font-semibold text-neutral-400"
-                          aria-label={`이미지 ${post.images.length}장`}
+                          aria-label={`첨부 ${post.images.length + post.files.length}개`}
                         >
                           <Paperclip className="size-3.5" aria-hidden />
-                          {post.images.length}
+                          {post.images.length + post.files.length}
                         </span>
                       )}
                     </span>
@@ -491,6 +514,13 @@ export function Board() {
                           onChange={(images) => setEditDraft((d) => ({ ...d, images }))}
                           disabled={busy}
                         />
+                        {isAdmin && (
+                          <FileAttach
+                            files={editDraft.files}
+                            onChange={(files) => setEditDraft((d) => ({ ...d, files }))}
+                            disabled={busy}
+                          />
+                        )}
                         <div className="flex items-center gap-2">
                           <PillButton
                             onClick={() => saveEdit(post.id)}
@@ -514,6 +544,7 @@ export function Board() {
                           images={post.images}
                           onOpen={(src) => setLightbox(src)}
                         />
+                        <FileList files={post.files} />
                       </div>
                     )}
 
@@ -597,6 +628,7 @@ export function Board() {
                                 title: post.title,
                                 body: post.body,
                                 images: post.images,
+                                files: post.files,
                               })
                             }}
                           >
@@ -908,6 +940,153 @@ function ImageAttach({
       </button>
       {error && <p className="text-[13px] text-science-red">{error}</p>}
     </div>
+  )
+}
+
+// Attach documents to a post: the 한글 and PDF handouts a 공지사항 refers to.
+// The same upload as the pictures above, but what travels with the post is the
+// name and size as well, because a document is handed over as a download.
+function FileAttach({
+  files,
+  onChange,
+  disabled,
+}: {
+  files: BoardAttachment[]
+  onChange: (files: BoardAttachment[]) => void
+  disabled?: boolean
+}) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
+  const full = files.length >= MAX_FILES
+
+  async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const picked = Array.from(e.target.files ?? [])
+    if (e.target) e.target.value = ''
+    if (!picked.length) return
+    setError('')
+    setBusy(true)
+    try {
+      const room = MAX_FILES - files.length
+      // One at a time, so the first refusal — a format nobody asked for, a file
+      // past the cap — is the one reported rather than whichever lost the race.
+      const added: BoardAttachment[] = []
+      for (const file of picked.slice(0, room)) added.push(await uploadBoardFile(file))
+      onChange([...files, ...added])
+      if (picked.length > room) {
+        setError(`파일은 최대 ${MAX_FILES}개까지 첨부할 수 있습니다.`)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '업로드에 실패했습니다.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <span className={LABEL}>파일 첨부 (한글 · PDF)</span>
+      {files.length > 0 && (
+        <ul className="flex flex-col gap-px overflow-hidden rounded border border-neutral-200 bg-neutral-200">
+          {files.map((file) => (
+            <li
+              key={file.url}
+              className="flex items-center gap-2.5 bg-background px-3 py-2.5"
+            >
+              <FileText className="size-4 shrink-0 text-science-red" aria-hidden />
+              <span className="min-w-0 flex-1 truncate text-[14px] text-foreground">
+                {file.name}
+              </span>
+              {file.size > 0 && (
+                <span className="shrink-0 text-[12px] text-neutral-500">
+                  {formatFileSize(file.size)}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => onChange(files.filter((f) => f.url !== file.url))}
+                aria-label={`${file.name} 첨부 취소`}
+                className="shrink-0 text-neutral-400 transition-colors hover:text-science-red"
+              >
+                <X className="size-4" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <input
+        ref={fileRef}
+        type="file"
+        accept={BOARD_FILE_ACCEPT}
+        multiple
+        onChange={onPick}
+        className="hidden"
+      />
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        disabled={disabled || busy || full}
+        className="inline-flex w-fit items-center gap-1.5 rounded-md border border-neutral-300 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-neutral-600 transition-colors hover:border-foreground hover:text-foreground disabled:opacity-50"
+      >
+        <Upload className="size-4" />
+        {busy ? '올리는 중…' : full ? `최대 ${MAX_FILES}개` : '파일 추가'}
+      </button>
+      <p className="text-[12px] leading-relaxed text-neutral-500">
+        .hwp, .hwpx, .pdf · 한글 파일은 브라우저에서 열리지 않고 내려받아 저장됩니다.
+      </p>
+      {error && <p className="text-[13px] text-science-red">{error}</p>}
+    </div>
+  )
+}
+
+/**
+ * A post's attached documents, under its body.
+ *
+ * A download rather than a viewer: no browser renders 한글, and a PDF has the
+ * browser's own reader to open in, which the 열기 link uses. `downloadUrl` is
+ * what makes 내려받기 actually save — an uploaded file is served from storage's
+ * host, where an anchor's `download` attribute is ignored.
+ */
+function FileList({ files }: { files: BoardAttachment[] }) {
+  if (!files?.length) return null
+  return (
+    <ul className="mt-4 flex flex-col gap-px overflow-hidden rounded border border-neutral-200 bg-neutral-200">
+      {files.map((file) => (
+        <li
+          key={file.url}
+          className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-panel/60 px-3 py-2.5"
+        >
+          <FileText className="size-4 shrink-0 text-science-red" aria-hidden />
+          <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-foreground">
+            {file.name}
+          </span>
+          {file.size > 0 && (
+            <span className="shrink-0 text-[12px] text-neutral-500">
+              {formatFileSize(file.size)}
+            </span>
+          )}
+          {/* Only a PDF has anywhere to open. */}
+          {/\.pdf$/i.test(file.name) && (
+            <a
+              href={file.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 text-[12px] font-bold text-neutral-500 transition-colors hover:text-science-red"
+            >
+              열기
+            </a>
+          )}
+          <a
+            href={downloadUrl(file.url, file.name)}
+            download={file.name}
+            className="inline-flex shrink-0 items-center gap-1 text-[12px] font-bold text-science-red transition-opacity hover:opacity-70"
+          >
+            <Download className="size-4" aria-hidden />
+            내려받기
+          </a>
+        </li>
+      ))}
+    </ul>
   )
 }
 
