@@ -57,6 +57,12 @@ export default async function PathwayPage({
   // questions — or nothing at all where none ship — and then swapped in the
   // saved ones, which is the flicker the article body no longer has.
   const quizKey = `${category.slug}/${pathSlug}`
+  // The order the quiz deals its opening hand in. Chosen here so the server and
+  // the browser agree on it — the block used to shuffle on the client alone,
+  // which meant the HTML carried no question and the reader watched an empty
+  // panel turn into one. It is as old as this page's cache entry; a reader who
+  // wants a fresh order retries, which re-shuffles for real.
+  const shuffleSeed = Math.floor(Math.random() * 2 ** 31)
   const [saved, savedQuiz] = await Promise.all([
     loadContentCached<Pathway>(`metabolism-edit:${category.slug}/${pathSlug}`, 60),
     loadContentCached<QuizQuestion[]>(`metabolism-quiz:${quizKey}`, 60),
@@ -93,7 +99,7 @@ export default async function PathwayPage({
         {!pathway.overviewOnly && (
           <div className="grid grid-cols-1 gap-10 lg:grid-cols-12">
             <div className="lg:col-span-8">
-              <PathwayQuiz path={quizKey} published={savedQuiz} />
+              <PathwayQuiz path={quizKey} published={savedQuiz} shuffleSeed={shuffleSeed} />
             </div>
           </div>
         )}

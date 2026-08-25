@@ -31,6 +31,7 @@ const PROGRESS_PREFIX = 'metabolism-quiz-progress:'
 export function PathwayQuiz({
   path,
   published,
+  shuffleSeed,
 }: {
   path: string
   /**
@@ -40,6 +41,11 @@ export function PathwayQuiz({
    * and then swapping once the client fetch lands.
    */
   published?: QuizQuestion[] | null
+  /**
+   * The order the opening deck is dealt in, chosen by the page so the server
+   * and the browser deal the same one. See QuizPlayer.
+   */
+  shuffleSeed: number
 }) {
   const { isAdmin } = useAuth()
   // The questions the page ships with, used until a saved edit replaces them.
@@ -49,13 +55,20 @@ export function PathwayQuiz({
   const [draft, setDraft] = useState<QuizQuestion[] | null>(null)
 
   // Catch up on an edit saved since this page was last rendered on the server:
-  // that read is cached for a minute. In the ordinary case it returns exactly
-  // what `published` already holds and nothing on screen moves.
+  // that read is cached for a minute.
+  //
+  // Only when it actually differs. The usual answer is the questions the page
+  // was already rendered with, and handing those back as a fresh array — equal
+  // but not the same object — reshuffled the deck under a reader who was part
+  // way through it: the question in front of them was replaced by another one
+  // and their answers were cleared, a second or so after the page opened.
   useEffect(() => {
     let stale = false
     loadPathwayQuiz(path).then((saved) => {
       if (stale || !saved) return
-      setQuestions(saved)
+      setQuestions((current) =>
+        JSON.stringify(current) === JSON.stringify(saved) ? current : saved,
+      )
     })
     return () => {
       stale = true
@@ -155,6 +168,7 @@ export function PathwayQuiz({
           key={questions.map((q) => q.id).join('|')}
           questions={questions}
           progressKey={path}
+          seed={shuffleSeed}
         />
       )}
 
@@ -475,23 +489,38 @@ type Shuffled = {
   answer: number
 }
 
-function shuffle<T>(items: T[]): T[] {
+/**
+ * A random number generator the server and the browser can both run and agree
+ * on, given the same seed (mulberry32). The deck has to be dealt identically in
+ * both places — see QuizPlayer — and Math.random cannot do that.
+ */
+function seeded(seed: number): () => number {
+  let a = seed >>> 0
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function shuffle<T>(items: T[], rand: () => number): T[] {
   const out = [...items]
   for (let i = out.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
+    const j = Math.floor(rand() * (i + 1))
     ;[out[i], out[j]] = [out[j], out[i]]
   }
   return out
 }
 
-function prepare(questions: QuizQuestion[]): Shuffled[] {
-  return shuffle(questions).map((question) => {
+function prepare(questions: QuizQuestion[], rand: () => number = Math.random): Shuffled[] {
+  return shuffle(questions, rand).map((question) => {
     // O/X keeps its natural order — shuffling it would only read as a typo.
     if (question.kind === 'ox') {
       return { question, choices: question.choices, answer: question.answer }
     }
     const correct = question.choices[question.answer]
-    const choices = shuffle(question.choices)
+    const choices = shuffle(question.choices, rand)
     return { question, choices, answer: choices.indexOf(correct) }
   })
 }
@@ -499,20 +528,36 @@ function prepare(questions: QuizQuestion[]): Shuffled[] {
 function QuizPlayer({
   questions,
   progressKey,
+  seed,
 }: {
   questions: QuizQuestion[]
   progressKey: string
+  /** The order to deal the opening hand in — see below. */
+  seed: number
 }) {
   const { user } = useAuth()
 
-  // Built in an effect, not in useState: shuffling during render would give the
-  // server and the client different orders and break hydration.
-  const [deck, setDeck] = useState<Shuffled[] | null>(null)
+  // Dealt during the first render rather than in an effect afterwards.
+  //
+  // Shuffling with Math.random here would give the server one order and the
+  // browser another, so the deck used to be built in an effect — which meant
+  // the server had no deck to render and sent the empty panel below instead.
+  // Every reader watched a grey box turn into a question once the page
+  // finished loading: the quiz blinking in. Seeded from a number the server
+  // chose and wrote into the page, both sides deal the same hand, so the
+  // question is in the HTML and nothing changes after it arrives.
+  //
+  // The seed comes from the page and is therefore as old as the page's cache
+  // entry; a retry below re-deals from Math.random, which is where a reader
+  // actually wants a fresh order.
+  const [deck, setDeck] = useState<Shuffled[]>(() => prepare(questions, seeded(seed)))
   const [index, setIndex] = useState(0)
   // One answer per question rather than one for wherever the reader happens to
   // be: they can leave a question unanswered, come back to it, and find their
   // earlier pick still there.
-  const [picks, setPicks] = useState<(number | null)[]>([])
+  const [picks, setPicks] = useState<(number | null)[]>(() =>
+    new Array(questions.length).fill(null),
+  )
   const [done, setDone] = useState(false)
   const [best, setBest] = useState<number | null>(null)
 
@@ -526,7 +571,13 @@ function QuizPlayer({
     setDone(false)
   }, [])
 
+  // Only when the administrator's questions actually change under us. The
+  // opening deck is already built above, and re-running it here would deal the
+  // reader a new one the moment the page finished loading.
+  const dealt = useRef(questions)
   useEffect(() => {
+    if (dealt.current === questions) return
+    dealt.current = questions
     start(questions)
   }, [questions, start])
 
@@ -542,7 +593,7 @@ function QuizPlayer({
     }
   }, [storageKey, questions.length])
 
-  const current = deck?.[index]
+  const current = deck[index]
   const picked = picks[index] ?? null
   const revealed = picked !== null
   const correct = revealed && current ? picked === current.answer : false
@@ -558,15 +609,11 @@ function QuizPlayer({
   // Moving on does not depend on having answered. A question you cannot do yet
   // is one to come back to, and being held on it only invites a guess.
   const goTo = useCallback(
-    (to: number) => {
-      if (!deck) return
-      setIndex(Math.min(Math.max(to, 0), deck.length - 1))
-    },
+    (to: number) => setIndex(Math.min(Math.max(to, 0), deck.length - 1)),
     [deck],
   )
 
   const finish = useCallback(() => {
-    if (!deck) return
     setDone(true)
 
     // Only a full run is a score worth keeping; a "wrong ones only" retry is a
@@ -588,13 +635,13 @@ function QuizPlayer({
   // Everything not yet got right — wrong answers and questions left blank
   // alike, since both are still to be learned.
   const unsolved = useMemo(
-    () => (deck ?? []).filter((q, i) => picks[i] !== q.answer).map((q) => q.question),
+    () => deck.filter((q, i) => picks[i] !== q.answer).map((q) => q.question),
     [deck, picks],
   )
 
-  if (!deck || !current) {
-    return <div className="mt-4 h-64 rounded border border-neutral-200 bg-panel" />
-  }
+  // An empty question set never reaches here — PathwayQuiz shows its own notice
+  // — so this only covers an index momentarily past the end of a shorter deck.
+  if (!current) return null
 
   if (done) {
     const score = deck.reduce((n, q, i) => n + (picks[i] === q.answer ? 1 : 0), 0)

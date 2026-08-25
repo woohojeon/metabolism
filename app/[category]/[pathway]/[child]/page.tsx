@@ -56,6 +56,12 @@ export default async function ChildPage({
   // the client alone it showed the seed questions (or an empty gap) before the
   // saved ones arrived.
   const quizKey = `${category.slug}/${pathway.slug}/${childSlug}`
+  // The order the quiz deals its opening hand in. Chosen here so the server and
+  // the browser agree on it — the block used to shuffle on the client alone,
+  // which meant the HTML carried no question and the reader watched an empty
+  // panel turn into one. It is as old as this page's cache entry; a reader who
+  // wants a fresh order retries, which re-shuffles for real.
+  const shuffleSeed = Math.floor(Math.random() * 2 ** 31)
   const [saved, savedQuiz] = await Promise.all([
     loadContentCached<Pathway>(`metabolism-edit:${category.slug}/${childSlug}`, 60),
     loadContentCached<QuizQuestion[]>(`metabolism-quiz:${quizKey}`, 60),
@@ -97,7 +103,7 @@ export default async function ChildPage({
             lines up with the body column rather than the full page width. */}
         <div className="grid grid-cols-1 gap-10 lg:grid-cols-12">
           <div className="lg:col-span-8">
-            <PathwayQuiz path={quizKey} published={savedQuiz} />
+            <PathwayQuiz path={quizKey} published={savedQuiz} shuffleSeed={shuffleSeed} />
           </div>
         </div>
 
