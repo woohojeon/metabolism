@@ -5,10 +5,18 @@ import { SiteHeader } from '@/components/site-header'
 import { SiteFooter } from '@/components/site-footer'
 import { CategoryFigures } from '@/components/category-figures'
 import { categories, getCategory } from '@/lib/pathways'
+import { loadContentCached } from '@/lib/site-content-server'
 
 export function generateStaticParams() {
   return categories.map((c) => ({ category: c.slug }))
 }
+
+// CDN-served with a one-minute background refresh (ISR), like the pathway
+// pages. The gallery below is read on the server within the same window, so the
+// page no longer ships the figures that shipped in the source and then has the
+// client fetch replace them — a whole gallery appearing, changing or vanishing
+// after the first paint.
+export const revalidate = 60
 
 export async function generateMetadata({
   params,
@@ -32,6 +40,15 @@ export default async function CategoryPage({
   const { category: slug } = await params
   const category = getCategory(slug)
   if (!category) notFound()
+
+  // Whatever the administrator last saved for this gallery. An empty list is a
+  // real answer — it means every figure was removed — so fall back to the
+  // published set only when nothing has been saved at all.
+  const savedFigures = await loadContentCached<string[]>(
+    `metabolism-cat-figures:${category.slug}`,
+    60,
+  )
+  const figures = savedFigures ?? category.figures ?? []
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -175,7 +192,7 @@ export default async function CategoryPage({
           <CategoryFigures
             categorySlug={category.slug}
             categoryName={category.name}
-            published={category.figures ?? []}
+            published={figures}
           />
         </div>
       </main>

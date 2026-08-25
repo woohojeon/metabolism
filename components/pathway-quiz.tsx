@@ -28,14 +28,29 @@ import { loadPathwayQuiz, savePathwayQuiz } from '@/lib/edits'
 
 const PROGRESS_PREFIX = 'metabolism-quiz-progress:'
 
-export function PathwayQuiz({ path }: { path: string }) {
+export function PathwayQuiz({
+  path,
+  published,
+}: {
+  path: string
+  /**
+   * What the page already read on the server — the saved questions when there
+   * are any, otherwise nothing. Passing it means the block renders its real
+   * questions in the first paint rather than showing the seed (or an empty gap)
+   * and then swapping once the client fetch lands.
+   */
+  published?: QuizQuestion[] | null
+}) {
   const { isAdmin } = useAuth()
   // The questions the page ships with, used until a saved edit replaces them.
   const seed = useMemo(() => quizSeed(path), [path])
-  const [questions, setQuestions] = useState<QuizQuestion[]>(seed)
+  const [questions, setQuestions] = useState<QuizQuestion[]>(published ?? seed)
   // Non-null means the administrator is editing; the player is hidden meanwhile.
   const [draft, setDraft] = useState<QuizQuestion[] | null>(null)
 
+  // Catch up on an edit saved since this page was last rendered on the server:
+  // that read is cached for a minute. In the ordinary case it returns exactly
+  // what `published` already holds and nothing on screen moves.
   useEffect(() => {
     let stale = false
     loadPathwayQuiz(path).then((saved) => {

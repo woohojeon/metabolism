@@ -6,6 +6,7 @@ import { EditablePathway } from '@/components/editable-pathway'
 import { PathwayQuiz } from '@/components/pathway-quiz'
 import { categories, getChild } from '@/lib/pathways'
 import type { Pathway } from '@/lib/pathways'
+import type { QuizQuestion } from '@/lib/pathway-quiz'
 import { loadContentCached } from '@/lib/site-content-server'
 
 export function generateStaticParams() {
@@ -51,10 +52,14 @@ export default async function ChildPage({
   // Server-load the saved article so slides and other edits render in the first
   // paint instead of flashing in on the client. EditablePathway keys a child's
   // edit by category + child slug, so match that here.
-  const saved = await loadContentCached<Pathway>(
-    `metabolism-edit:${category.slug}/${childSlug}`,
-    60,
-  )
+  // The quiz is its own document, read here for the same reason: rendered on
+  // the client alone it showed the seed questions (or an empty gap) before the
+  // saved ones arrived.
+  const quizKey = `${category.slug}/${pathway.slug}/${childSlug}`
+  const [saved, savedQuiz] = await Promise.all([
+    loadContentCached<Pathway>(`metabolism-edit:${category.slug}/${childSlug}`, 60),
+    loadContentCached<QuizQuestion[]>(`metabolism-quiz:${quizKey}`, 60),
+  ])
   const child = saved ? { ...result.child, ...saved } : result.child
 
   const index = pathway.children.findIndex((c) => c.slug === child.slug)
@@ -92,7 +97,7 @@ export default async function ChildPage({
             lines up with the body column rather than the full page width. */}
         <div className="grid grid-cols-1 gap-10 lg:grid-cols-12">
           <div className="lg:col-span-8">
-            <PathwayQuiz path={`${category.slug}/${pathway.slug}/${child.slug}`} />
+            <PathwayQuiz path={quizKey} published={savedQuiz} />
           </div>
         </div>
 

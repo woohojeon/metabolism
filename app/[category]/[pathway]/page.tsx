@@ -6,6 +6,7 @@ import { EditablePathway } from '@/components/editable-pathway'
 import { PathwayQuiz } from '@/components/pathway-quiz'
 import { categories, getPathway } from '@/lib/pathways'
 import type { Pathway } from '@/lib/pathways'
+import type { QuizQuestion } from '@/lib/pathway-quiz'
 import { loadContentCached } from '@/lib/site-content-server'
 
 export function generateStaticParams() {
@@ -50,16 +51,21 @@ export default async function PathwayPage({
   // section) uploaded after build renders in the first paint instead of
   // flashing in — and shifting the layout — once the client fetches it. The key
   // and merge mirror loadPathwayEdit / EditablePathway in lib/edits.ts.
-  const saved = await loadContentCached<Pathway>(
-    `metabolism-edit:${category.slug}/${pathSlug}`,
-    60,
-  )
+  //
+  // The quiz is a separate document (it is edited separately), and it was the
+  // one part of the page still left to the client: the block rendered the seed
+  // questions — or nothing at all where none ship — and then swapped in the
+  // saved ones, which is the flicker the article body no longer has.
+  const quizKey = `${category.slug}/${pathSlug}`
+  const [saved, savedQuiz] = await Promise.all([
+    loadContentCached<Pathway>(`metabolism-edit:${category.slug}/${pathSlug}`, 60),
+    loadContentCached<QuizQuestion[]>(`metabolism-quiz:${quizKey}`, 60),
+  ])
   const pathway = saved ? { ...result.pathway, ...saved } : result.pathway
 
   const index = category.pathways.findIndex((p) => p.slug === pathway.slug)
   const prev = category.pathways[index - 1]
   const next = category.pathways[index + 1]
-  const quizKey = `${category.slug}/${pathway.slug}`
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -87,7 +93,7 @@ export default async function PathwayPage({
         {!pathway.overviewOnly && (
           <div className="grid grid-cols-1 gap-10 lg:grid-cols-12">
             <div className="lg:col-span-8">
-              <PathwayQuiz path={quizKey} />
+              <PathwayQuiz path={quizKey} published={savedQuiz} />
             </div>
           </div>
         )}
