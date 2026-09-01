@@ -8,15 +8,21 @@
  * simply navigates: 내려받기 becomes a second 열기.
  *
  * Storage takes a `download` parameter that sets the attachment header itself,
- * and a header is obeyed whatever the origin. Files shipped under /public are
- * same-origin, so the attribute already works for them and they are left as
- * they are.
+ * and a header is obeyed whatever the origin.
+ *
+ * Same-origin files under /public need the header too, even though the
+ * attribute already covers them on a desktop: the in-app browser a phone opens
+ * a shared link in ignores the attribute, and a header is the only thing left
+ * that it listens to. /download/ is where those files answer with one attached
+ * — see the rewrite in next.config.mjs.
  *
  * Kept free of imports so it can be exercised on its own.
  */
 export function downloadUrl(url: string, filename: string): string {
   // Relative — a path under /public, served from this site.
-  if (!/^https?:\/\//i.test(url)) return url
+  if (!/^https?:\/\//i.test(url)) {
+    return url.startsWith('/downloads/') ? `/download/${url.slice('/downloads/'.length)}` : url
+  }
 
   try {
     const parsed = new URL(url)
