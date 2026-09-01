@@ -95,6 +95,11 @@ export async function sbSignedUpload(
 /** The public URL an uploaded file is served from, once it is in the bucket. */
 export const PUBLIC_PREFIX = `/storage/v1/object/public/${BUCKET}/`
 
+/** Where one named file in the uploads bucket is read from. */
+export function publicObjectUrl(path: string): string {
+  return `${URL_BASE}${PUBLIC_PREFIX}${path}`
+}
+
 /**
  * The name a public URL refers to inside the uploads bucket, or null if the URL
  * is not one this application put there.
