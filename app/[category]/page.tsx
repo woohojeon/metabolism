@@ -11,12 +11,12 @@ export function generateStaticParams() {
   return categories.map((c) => ({ category: c.slug }))
 }
 
-// CDN-served with a one-minute background refresh (ISR), like the pathway
-// pages. The gallery below is read on the server within the same window, so the
-// page no longer ships the figures that shipped in the source and then has the
-// client fetch replace them — a whole gallery appearing, changing or vanishing
-// after the first paint.
-export const revalidate = 60
+// CDN-served, and rebuilt when the gallery it shows is saved rather than on a
+// timer — see the pathway page. The figures are read on the server, so the page
+// no longer ships the set that shipped in the source and then has the client
+// fetch replace them — a whole gallery appearing, changing or vanishing after
+// the first paint.
+export const revalidate = 86_400
 
 export async function generateMetadata({
   params,
@@ -44,10 +44,7 @@ export default async function CategoryPage({
   // Whatever the administrator last saved for this gallery. An empty list is a
   // real answer — it means every figure was removed — so fall back to the
   // published set only when nothing has been saved at all.
-  const savedFigures = await loadContentCached<string[]>(
-    `metabolism-cat-figures:${category.slug}`,
-    60,
-  )
+  const savedFigures = await loadContentCached<string[]>(`metabolism-cat-figures:${category.slug}`)
   const figures = savedFigures ?? category.figures ?? []
 
   return (

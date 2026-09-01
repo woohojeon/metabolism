@@ -15,12 +15,19 @@ export function generateStaticParams() {
   )
 }
 
-// Serve from the CDN and refresh in the background every minute (ISR), rather
-// than rendering on every request. The saved article is read below with the
-// same window, so an edit reaches other visitors within a minute — fast pages
-// in exchange for that small delay. The card no longer flashes in either way,
-// since the read happens on the server before the HTML is sent.
-export const revalidate = 60
+// Serve from the CDN rather than rendering on every request (ISR). The saved
+// article is read below under a cache tag, and /api/content revalidates that
+// tag on save, so this page is rebuilt when its text actually changes and an
+// edit reaches other visitors at once. A day is only the safety net for a save
+// that never reached the tag; it is not what carries an ordinary edit.
+//
+// It was a minute, which rebuilt every page anyone looked at every minute
+// whether or not a word had changed. A rebuild is a write against the hosting
+// quota, and 48 prerendered pages republishing untouched text spent most of it.
+//
+// The card no longer flashes in either way, since the read happens on the
+// server before the HTML is sent.
+export const revalidate = 86_400
 
 export async function generateMetadata({
   params,
@@ -64,8 +71,8 @@ export default async function PathwayPage({
   // wants a fresh order retries, which re-shuffles for real.
   const shuffleSeed = Math.floor(Math.random() * 2 ** 31)
   const [saved, savedQuiz] = await Promise.all([
-    loadContentCached<Pathway>(`metabolism-edit:${category.slug}/${pathSlug}`, 60),
-    loadContentCached<QuizQuestion[]>(`metabolism-quiz:${quizKey}`, 60),
+    loadContentCached<Pathway>(`metabolism-edit:${category.slug}/${pathSlug}`),
+    loadContentCached<QuizQuestion[]>(`metabolism-quiz:${quizKey}`),
   ])
   const pathway = saved ? { ...result.pathway, ...saved } : result.pathway
 

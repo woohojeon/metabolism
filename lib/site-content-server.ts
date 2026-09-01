@@ -29,20 +29,33 @@ export async function loadContentServer<T>(key: string): Promise<T | null> {
   }
 }
 
+/** The cache tag every prerendered page that read `key` is filed under. */
+export function contentTag(key: string): string {
+  return `content:${key}`
+}
+
+// How long a page may go on serving a saved document it was not told about.
+// Only a safety net: /api/content revalidates the tag the moment a document is
+// written, so this is what covers a write that never reached the tag — a failed
+// call, a row changed in the database by hand.
+const FALLBACK_REVALIDATE = 86_400
+
 // A cacheable read of one site-content document, for pages that want to stay on
 // the CDN (ISR) rather than render on every request.
 //
 // `sb()` above is deliberately no-store — it is shared with the students table
 // and with writes, which must never be cached — and a no-store fetch inside a
 // page forces that page to render dynamically. This reads `site_content` alone
-// (public article edits, shown to everyone) with a revalidate window instead,
-// so the page it feeds can be prerendered and refreshed every `revalidate`
-// seconds. An edit therefore appears to other visitors within that window, not
-// instantly; the editing administrator still sees it at once from local state.
-export async function loadContentCached<T>(
-  key: string,
-  revalidate: number,
-): Promise<T | null> {
+// (public article edits, shown to everyone) so the page it feeds can be
+// prerendered.
+//
+// Tagged rather than timed. A one-minute window meant every page that anyone
+// looked at rebuilt itself every minute whether or not a word had changed, and
+// a rebuild is an ISR write: 48 prerendered pages spending the hosting quota on
+// republishing text nobody had touched. The tag inverts it — the page is
+// rebuilt when the document it read is actually saved, which also means an edit
+// reaches other visitors at once instead of within a minute.
+export async function loadContentCached<T>(key: string): Promise<T | null> {
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!base || !serviceKey) return null
@@ -51,7 +64,7 @@ export async function loadContentCached<T>(
       `${base}/rest/v1/site_content?key=eq.${encodeURIComponent(key)}&select=value&limit=1`,
       {
         headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
-        next: { revalidate },
+        next: { revalidate: FALLBACK_REVALIDATE, tags: [contentTag(key)] },
       },
     )
     if (!res.ok) return null

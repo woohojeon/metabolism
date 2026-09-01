@@ -21,9 +21,9 @@ export function generateStaticParams() {
   )
 }
 
-// CDN-served with a one-minute background refresh (ISR) — see the parent
-// pathway page.
-export const revalidate = 60
+// CDN-served, and rebuilt on save rather than on a timer (ISR) — see the
+// parent pathway page.
+export const revalidate = 86_400
 
 export async function generateMetadata({
   params,
@@ -63,8 +63,8 @@ export default async function ChildPage({
   // wants a fresh order retries, which re-shuffles for real.
   const shuffleSeed = Math.floor(Math.random() * 2 ** 31)
   const [saved, savedQuiz] = await Promise.all([
-    loadContentCached<Pathway>(`metabolism-edit:${category.slug}/${childSlug}`, 60),
-    loadContentCached<QuizQuestion[]>(`metabolism-quiz:${quizKey}`, 60),
+    loadContentCached<Pathway>(`metabolism-edit:${category.slug}/${childSlug}`),
+    loadContentCached<QuizQuestion[]>(`metabolism-quiz:${quizKey}`),
   ])
   const child = saved ? { ...result.child, ...saved } : result.child
 

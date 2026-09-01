@@ -1,6 +1,8 @@
+import { revalidateTag } from 'next/cache'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { ADMIN_COOKIE, isAdminSession } from '@/lib/admin-session'
+import { contentTag } from '@/lib/site-content-server'
 import { sb, supabaseReady } from '@/lib/supabase-rest'
 
 // Read and write the shared site content documents in public.site_content.
@@ -26,6 +28,25 @@ async function denyUnlessAdmin() {
 
 function oops() {
   return NextResponse.json({ error: '데이터베이스 요청이 실패했습니다.' }, { status: 502 })
+}
+
+/**
+ * Tells the prerendered pages that read this document to rebuild.
+ *
+ * The pages are on the CDN and no longer rebuild on a timer, so without this a
+ * save would not reach a reader for a day. Called after the write lands and
+ * never before it: a page rebuilt against the old row would cache the very
+ * thing the edit was meant to replace.
+ *
+ * `expire: 0` rather than a stale-while-revalidate profile: the next reader
+ * waits for the rebuild instead of being served the copy this save just
+ * replaced. It costs one slow request on a page that is now rebuilt only when
+ * someone actually edits it, and it is what makes "the edit is live when the
+ * save returns" true rather than nearly true.
+ */
+function published(key: string) {
+  revalidateTag(contentTag(key), { expire: 0 })
+  return NextResponse.json({ ok: true })
 }
 
 /** GET /api/content?key=… → the stored value, or null if nothing is saved. */
@@ -70,7 +91,7 @@ export async function PUT(request: Request) {
       // Upsert: saving is a repeated overwrite of the same key, not an insert.
       headers: { Prefer: 'resolution=merge-duplicates' },
     })
-    return NextResponse.json({ ok: true })
+    return published(key)
   } catch {
     return oops()
   }
@@ -87,7 +108,7 @@ export async function DELETE(request: Request) {
 
   try {
     await sb(`site_content?key=eq.${encodeURIComponent(key)}`, { method: 'DELETE' })
-    return NextResponse.json({ ok: true })
+    return published(key)
   } catch {
     return oops()
   }
