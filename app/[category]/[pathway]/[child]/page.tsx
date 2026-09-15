@@ -25,6 +25,11 @@ export function generateStaticParams() {
 // parent pathway page.
 export const revalidate = 86_400
 
+// Closed for the same reason as the category page above: the pathways that
+// exist are all listed, so an unmatched slug is a scanner, and answering it
+// from the static 404 costs nothing instead of a cached render.
+export const dynamicParams = false
+
 export async function generateMetadata({
   params,
 }: {

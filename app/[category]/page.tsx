@@ -18,6 +18,15 @@ export function generateStaticParams() {
 // the first paint.
 export const revalidate = 86_400
 
+// Every category that exists is named in generateStaticParams above, so an
+// unknown slug is a typo or a scanner — never a page waiting to be built. On
+// the default, Next renders /wp-admin, /.env and every other guess a crawler
+// makes, caches the 404 it produced, and that cache write is billed: one
+// hosting write per junk URL, and a crawler invents them without limit.
+// Closed, the same request is answered from the build's 404 without rendering
+// anything at all.
+export const dynamicParams = false
+
 export async function generateMetadata({
   params,
 }: {
