@@ -656,7 +656,7 @@ function QuizPlayer({
         </p>
         <p className="mt-3 text-[14px] text-neutral-700">
           {score === deck.length
-            ? '전부 맞혔습니다. 해당과정의 뼈대는 잡혔습니다.'
+            ? '전부 맞혔습니다.'
             : [
                 wrong > 0 ? `${wrong}문제를 틀렸습니다` : null,
                 skipped > 0 ? `${skipped}문제는 답하지 않았습니다` : null,
