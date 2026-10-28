@@ -7,15 +7,74 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 // 실제 렌더러 출력이라 화살표/글씨가 PowerPoint 와 동일.
 
 type Cat = 'overview' | 'carbohydrate' | 'lipid' | 'protein' | 'nucleic'
-// Category accent colours sampled from each section's cover photo:
-// carbohydrate = golden bread/amber, lipid = teal oil bubbles,
-// protein = red cured meat, nucleic acid = deep blue DNA helix.
+// Category colours are the fills of the four category title boxes on slide 1
+// of the deck, so the list matches the map it sits beside. Yellow cannot be
+// read as text on white, so these colour swatches and highlights, never words.
 const CAT: Record<Cat, { label: string; color: string }> = {
   overview: { label: 'Overview', color: '#111111' },
-  carbohydrate: { label: 'Carbohydrate', color: '#B5793A' },
-  lipid: { label: 'Lipid', color: '#1F9E93' },
-  protein: { label: 'Protein', color: '#C0433C' },
-  nucleic: { label: 'Nucleic acid', color: '#34618E' },
+  carbohydrate: { label: 'Carbohydrate', color: '#E46C0A' },
+  lipid: { label: 'Lipid', color: '#FFFF00' },
+  protein: { label: 'Protein', color: '#FF0000' },
+  nucleic: { label: 'Nucleic acid', color: '#000000' },
+}
+
+// What the view shows: one slide by id, or every pathway of a category at once
+// (`cat:lipid`).
+//
+// The union is drawn on slide 1, not by stacking the category's slides: each
+// slide paints its own boxes in its own order, so a later slide's boxes cover
+// an earlier slide's arrows and labels. Slide 1 has every shape once, already
+// in the order the deck stacks them, so the union is slide 1 with the shapes
+// those pathways use at full strength and the rest faded. See tagShapes.
+type Sel = string
+const catSel = (c: Cat): Sel => `cat:${c}`
+
+// LibreOffice writes every shape as <g id><rect class="BoundingBox" …>, and a
+// shape copied from slide 1 onto a pathway slide keeps its box and its text.
+// That pair finds each pathway shape's original on slide 1, which is marked
+// with the categories it belongs to (data-cats). The few with no original —
+// connectors re-routed on the pathway slide, a label moved only on slide 1 —
+// are marked data-extra and drawn from their own slide on top instead.
+function tagShapes(root: HTMLElement) {
+  const leaves = (slide: Element) =>
+    Array.from(slide.querySelectorAll('g[id]')).flatMap((g) => {
+      const r = g.querySelector(':scope > rect.BoundingBox')
+      if (!r) return []
+      const n = (k: string) => Math.round(Number(r.getAttribute(k)))
+      const box = [n('x'), n('y'), n('width'), n('height')]
+      return [{ g, box, text: (g.textContent ?? '').replace(/\s+/g, '') }]
+    })
+  const master = root.querySelector('g#id1.Slide')
+  if (!master) return
+  const originals = leaves(master)
+  const byKey = new Map(originals.map((o) => [`${o.box.join(',')}|${o.text}`, o.g]))
+  const cats = new Map<Element, Set<Cat>>()
+  for (const o of originals) o.g.setAttribute('data-leaf', '')
+
+  for (const s of SLIDES) {
+    if (s.id === 'id1') continue
+    const slide = root.querySelector(`g#${s.id}.Slide`)
+    if (!slide) continue
+    for (const l of leaves(slide)) {
+      let g = byKey.get(`${l.box.join(',')}|${l.text}`)
+      // A label nudged on one slide only: the same words close by.
+      if (!g && l.text) {
+        let best = Infinity
+        for (const o of originals) {
+          if (o.text !== l.text) continue
+          const d = Math.abs(o.box[0] - l.box[0]) + Math.abs(o.box[1] - l.box[1])
+          if (d < best && d < 2000) { best = d; g = o.g }
+        }
+      }
+      if (g) {
+        if (!cats.has(g)) cats.set(g, new Set())
+        cats.get(g)!.add(s.cat)
+      } else {
+        l.g.setAttribute('data-extra', '')
+      }
+    }
+  }
+  for (const [g, c] of cats) g.setAttribute('data-cats', Array.from(c).join(' '))
 }
 
 // 이 deck 의 슬라이드 순서(고정). id1 = 슬라이드1(전체 지도).
@@ -47,7 +106,7 @@ const SLIDE_WIDTH = 1000
 
 export function MapSvgView() {
   const [svg, setSvg] = useState('')
-  const [sel, setSel] = useState('id1')
+  const [sel, setSel] = useState<Sel>('id1')
   // A phone is a third of a slide wide, so opening at 100% would drop the
   // reader into the top-left corner of a map they would then have to pan
   // blind. `null` means "as wide as it will go", which is where every screen
@@ -55,6 +114,7 @@ export function MapSvgView() {
   const [zoom, setZoom] = useState<number | null>(null)
   const [fit, setFit] = useState(1)
   const viewRef = useRef<HTMLDivElement>(null)
+  const svgRef = useRef<HTMLDivElement>(null)
   const ZMIN = 0.3, ZMAX = 5
   const scale = zoom ?? fit
   const bump = (d: number) =>
@@ -88,11 +148,28 @@ export function MapSvgView() {
       .catch(() => setSvg(''))
   }, [])
 
+  // Put in by hand, once, rather than through dangerouslySetInnerHTML: React
+  // wrote the whole 3 MB drawing back in on every render — every click in the
+  // list — which re-parsed it each time and wiped the marks tagShapes leaves.
+  useEffect(() => {
+    const el = svgRef.current
+    if (!svg || !el) return
+    el.innerHTML = svg
+    tagShapes(el)
+  }, [svg])
+
   const groups = useMemo(() => {
     const order: Cat[] = ['overview', 'carbohydrate', 'lipid', 'protein', 'nucleic']
     return order.map((c) => ({ cat: c, ...CAT[c], items: SLIDES.filter((s) => s.cat === c) }))
   }, [])
-  const current = SLIDES.find((s) => s.id === sel)!
+  const selCat = sel.startsWith('cat:') ? (sel.slice(4) as Cat) : null
+  const mapCss = selCat
+    ? `.mapsvg g#id1{visibility:visible;opacity:1}.mapsvg g#id1 g[data-leaf]{opacity:0.16}.mapsvg g#id1 g[data-cats~="${selCat}"]{opacity:1}` +
+      SLIDES.filter((s) => s.cat === selCat).map((s) => `.mapsvg g#${s.id} g[data-extra]{visibility:visible}`).join('')
+    : `.mapsvg g#id1{visibility:visible;opacity:0.16}.mapsvg g#${sel}{visibility:visible;opacity:1}`
+  const current = selCat
+    ? { name: `${CAT[selCat].label} — all pathways`, cat: selCat }
+    : SLIDES.find((s) => s.id === sel)!
 
   return (
     <div className="flex flex-col gap-4 lg:flex-row">
@@ -121,6 +198,7 @@ export function MapSvgView() {
               ))
             ) : (
               <optgroup key={g.cat} label={g.label}>
+                <option value={catSel(g.cat)}>{g.label} — all pathways</option>
                 {g.items.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -141,11 +219,17 @@ export function MapSvgView() {
           {groups.map((g) => (
             <div key={g.cat}>
               {g.cat !== 'overview' && (
-                <div className="flex items-center gap-2">
-                  <span className="size-3 rounded-sm" style={{ backgroundColor: g.color }} aria-hidden />
-                  <h3 className="text-[13px] font-extrabold uppercase tracking-wide text-foreground">{g.label}</h3>
+                <button
+                  type="button"
+                  onClick={() => setSel(catSel(g.cat))}
+                  title={`${g.label} 경로 전체를 한 번에 보기`}
+                  className="flex w-full items-center gap-2 rounded px-2 py-1 text-left transition-colors hover:text-science-red"
+                  style={selCat === g.cat ? { backgroundColor: g.color + '33', boxShadow: `inset 3px 0 0 ${g.color}` } : undefined}
+                >
+                  <span className="size-3 shrink-0 rounded-sm ring-1 ring-black/15" style={{ backgroundColor: g.color }} aria-hidden />
+                  <h3 className="text-[13px] font-extrabold uppercase tracking-wide">{g.label}</h3>
                   <span className="text-[11px] text-neutral-400">{g.items.length}</span>
-                </div>
+                </button>
               )}
               <ul className={g.cat === 'overview' ? '' : 'mt-1.5'}>
                 {g.items.map((s) => {
@@ -156,7 +240,7 @@ export function MapSvgView() {
                         type="button"
                         onClick={() => setSel(s.id)}
                         className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[13px] leading-snug transition-colors hover:text-science-red"
-                        style={on ? { backgroundColor: g.color + '22', color: g.color, fontWeight: 700 } : undefined}
+                        style={on ? { backgroundColor: g.color + '33', boxShadow: `inset 3px 0 0 ${g.color}`, fontWeight: 700 } : undefined}
                       >
                         {s.name}
                       </button>
@@ -172,7 +256,10 @@ export function MapSvgView() {
       {/* Slide view */}
       <div className="min-w-0 flex-1">
         <div className="mb-2 flex items-center justify-between">
-          <p className="min-w-0 truncate text-[12px] font-semibold" style={{ color: CAT[current.cat].color }}>{current.name}</p>
+          <p className="flex min-w-0 items-center gap-1.5 text-[12px] font-semibold">
+            <span className="size-2.5 shrink-0 rounded-sm ring-1 ring-black/15" style={{ backgroundColor: CAT[current.cat].color }} aria-hidden />
+            <span className="truncate">{current.name}</span>
+          </p>
           <div className="flex shrink-0 items-center gap-1">
             <button type="button" onClick={() => bump(-0.2)} disabled={scale <= ZMIN} aria-label="Zoom out"
               className="flex size-9 items-center justify-center rounded border border-neutral-300 text-[16px] font-bold text-neutral-600 transition-colors hover:border-foreground disabled:opacity-30 sm:size-7">−</button>
@@ -192,10 +279,10 @@ export function MapSvgView() {
           style={{ maxHeight: 'calc(100dvh - 200px)', minHeight: '18rem' }}
         >
           {/* 선택 슬라이드만 표시 */}
-          {/* 전체 지도(id1)를 흐리게 깔고, 선택 슬라이드를 위에 또렷하게 겹쳐 강조 */}
-          <style>{`.mapsvg svg{width:100%;height:auto;display:block}.mapsvg g.Slide{visibility:hidden}.mapsvg g#id1{visibility:visible;opacity:0.16}.mapsvg g#${sel}{visibility:visible;opacity:1}`}</style>
+          {/* 전체 지도(id1)를 흐리게 깔고 선택 슬라이드를 위에 또렷하게 겹친다. 카테고리는 id1 위에서 바로 강조 (tagShapes 참고) */}
+          <style>{`.mapsvg svg{width:100%;height:auto;display:block}.mapsvg g.Slide{visibility:hidden}${mapCss}`}</style>
           {svg ? (
-            <div className="mapsvg" style={{ width: `${SLIDE_WIDTH * scale}px`, maxWidth: 'none' }} dangerouslySetInnerHTML={{ __html: svg }} />
+            <div ref={svgRef} className="mapsvg" style={{ width: `${SLIDE_WIDTH * scale}px`, maxWidth: 'none' }} />
           ) : (
             <div className="flex h-[50dvh] items-center justify-center text-[13px] text-neutral-400">불러오는 중…</div>
           )}
