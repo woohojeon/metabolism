@@ -1,8 +1,9 @@
 'use client'
 
-import { Check, Pencil, RotateCcw, Subscript, Superscript, X } from 'lucide-react'
+import { Check, Lock, Pencil, RotateCcw, Subscript, Superscript, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@/components/auth-provider'
+import { LoginDialog } from '@/components/login-dialog'
 import { sanitizeRich } from '@/lib/rich-text'
 import { type QuizKind, type QuizQuestion, quizSeed } from '@/lib/pathway-quiz'
 import { loadPathwayQuiz, savePathwayQuiz } from '@/lib/edits'
@@ -25,6 +26,9 @@ import { loadPathwayQuiz, savePathwayQuiz } from '@/lib/edits'
 // Every pathway page carries this block, but only Glycolysis ships with
 // questions. Elsewhere it stays invisible to readers until the administrator
 // writes some — an empty quiz is not something a student should be shown.
+//
+// Solving it takes a sign-in, like the lecture slides: a signed-out reader
+// sees that the quiz is there and how to get at it, not the questions.
 
 const PROGRESS_PREFIX = 'metabolism-quiz-progress:'
 
@@ -47,7 +51,8 @@ export function PathwayQuiz({
    */
   shuffleSeed: number
 }) {
-  const { isAdmin } = useAuth()
+  const { user, isAdmin } = useAuth()
+  const [loginOpen, setLoginOpen] = useState(false)
   // The questions the page ships with, used until a saved edit replaces them.
   const seed = useMemo(() => quizSeed(path), [path])
   const [questions, setQuestions] = useState<QuizQuestion[]>(published ?? seed)
@@ -161,6 +166,22 @@ export function PathwayQuiz({
           <br />
           문제를 저장하기 전까지 학생에게는 이 영역이 보이지 않습니다.
         </p>
+      ) : !user ? (
+        <div className="mt-4 rounded border border-neutral-200 bg-panel px-4 py-6 text-center">
+          <p className="flex items-center justify-center gap-1.5 text-[13px] text-neutral-700">
+            <Lock className="size-[13px] shrink-0 text-neutral-400" />
+            로그인한 사용자만 퀴즈를 풀 수 있습니다.
+          </p>
+          <button
+            type="button"
+            onClick={() => setLoginOpen(true)}
+            className="mt-3 inline-flex items-center gap-2 rounded border border-science-red px-4 py-2 text-[12px] font-bold text-science-red transition-colors hover:bg-science-red hover:text-white"
+          >
+            <Lock className="size-[14px]" />
+            로그인 후 풀기
+          </button>
+          <LoginDialog open={loginOpen} onClose={() => setLoginOpen(false)} />
+        </div>
       ) : (
         // Remount on an edit, so a half-finished attempt cannot carry a stale
         // deck into the new question set.
