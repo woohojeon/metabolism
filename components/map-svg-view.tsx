@@ -35,6 +35,24 @@ const catSel = (c: Cat): Sel => `cat:${c}`
 // with the categories it belongs to (data-cats). The few with no original —
 // connectors re-routed on the pathway slide, a label moved only on slide 1 —
 // are marked data-extra and drawn from their own slide on top instead.
+// LibreOffice gets one thing wrong in this deck: a wrapped label inside a
+// rotated group, rotated again itself (Adenine nucleotide translocase), comes
+// out with its second line above the first. In the label's own frame — the
+// tspans sit inside the rotate() — a later line must be lower, so one that
+// climbs is put back a line below the one before it. 0.9 of the type size is
+// the deck's 8pt spacing on 9pt type.
+function fixClimbingLines(root: HTMLElement) {
+  for (const t of Array.from(root.querySelectorAll('text.SVGTextShape[transform*="rotate"]'))) {
+    const lines = Array.from(t.querySelectorAll('tspan.TextPosition'))
+    for (let i = 1; i < lines.length; i++) {
+      const fs = parseFloat(lines[i].querySelector('[font-size]')?.getAttribute('font-size') ?? '') || 300
+      const prev = Number(lines[i - 1].getAttribute('y'))
+      if (Number(lines[i].getAttribute('y')) < prev - fs * 0.5)
+        lines[i].setAttribute('y', String(Math.round(prev + fs * 0.9)))
+    }
+  }
+}
+
 function tagShapes(root: HTMLElement) {
   const leaves = (slide: Element) =>
     Array.from(slide.querySelectorAll('g[id]')).flatMap((g) => {
@@ -155,6 +173,7 @@ export function MapSvgView() {
     const el = svgRef.current
     if (!svg || !el) return
     el.innerHTML = svg
+    fixClimbingLines(el)
     tagShapes(el)
   }, [svg])
 
