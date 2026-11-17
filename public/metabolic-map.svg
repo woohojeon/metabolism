@@ -4407,7 +4407,7 @@
       <g class="com.sun.star.drawing.CustomShape">
        <g id="id597">
         <rect class="BoundingBox" stroke="none" fill="none" x="4884" y="20911" width="2000" height="556"/>
-        <text class="SVGTextShape"><tspan class="TextParagraph"><tspan class="TextPosition" x="5397" y="21283"><tspan font-family="맑은 고딕" font-size="247px" font-weight="700" lengthAdjust="spacingAndGlyphs" textLength="975" fill="rgb(0,176,240)" stroke="none" style="white-space: pre">Tyrosine</tspan></tspan></tspan></text>
+        <text class="SVGTextShape"><tspan class="TextParagraph"><tspan class="TextPosition" x="5397" y="21283"><tspan font-family="맑은 고딕" font-size="247px" font-weight="700" lengthAdjust="spacingAndGlyphs" textLength="975" fill="rgb(255,255,255)" stroke="none" style="white-space: pre">Tyrosine</tspan></tspan></tspan></text>
        </g>
       </g>
       <g class="com.sun.star.drawing.CustomShape">
@@ -4507,7 +4507,7 @@
       <g class="com.sun.star.drawing.CustomShape">
        <g id="id612">
         <rect class="BoundingBox" stroke="none" fill="none" x="7260" y="25403" width="2000" height="556"/>
-        <text class="SVGTextShape"><tspan class="TextParagraph"><tspan class="TextPosition" x="7904" y="25775"><tspan font-family="맑은 고딕" font-size="247px" font-weight="700" lengthAdjust="spacingAndGlyphs" textLength="713" fill="rgb(255,255,255)" stroke="none" style="white-space: pre">Lysine</tspan></tspan></tspan></text>
+        <text class="SVGTextShape"><tspan class="TextParagraph"><tspan class="TextPosition" x="7904" y="25775"><tspan font-family="맑은 고딕" font-size="247px" font-weight="700" lengthAdjust="spacingAndGlyphs" textLength="713" fill="rgb(0,176,240)" stroke="none" style="white-space: pre">Lysine</tspan></tspan></tspan></text>
        </g>
       </g>
       <g class="com.sun.star.drawing.ConnectorShape">
@@ -13207,7 +13207,7 @@
       <g class="com.sun.star.drawing.CustomShape">
        <g id="id1768">
         <rect class="BoundingBox" stroke="none" fill="none" x="7260" y="25403" width="2000" height="556"/>
-        <text class="SVGTextShape"><tspan class="TextParagraph"><tspan class="TextPosition" x="7904" y="25775"><tspan font-family="맑은 고딕" font-size="247px" font-weight="700" lengthAdjust="spacingAndGlyphs" textLength="713" fill="rgb(255,255,255)" stroke="none" style="white-space: pre">Lysine</tspan></tspan></tspan></text>
+        <text class="SVGTextShape"><tspan class="TextParagraph"><tspan class="TextPosition" x="7904" y="25775"><tspan font-family="맑은 고딕" font-size="247px" font-weight="700" lengthAdjust="spacingAndGlyphs" textLength="713" fill="rgb(0,176,240)" stroke="none" style="white-space: pre">Lysine</tspan></tspan></tspan></text>
        </g>
       </g>
       <g class="com.sun.star.drawing.ConnectorShape">
@@ -21854,7 +21854,7 @@
       <g class="com.sun.star.drawing.CustomShape">
        <g id="id2847">
         <rect class="BoundingBox" stroke="none" fill="none" x="4884" y="20911" width="2000" height="556"/>
-        <text class="SVGTextShape"><tspan class="TextParagraph"><tspan class="TextPosition" x="5397" y="21283"><tspan font-family="맑은 고딕" font-size="247px" font-weight="700" lengthAdjust="spacingAndGlyphs" textLength="975" fill="rgb(0,176,240)" stroke="none" style="white-space: pre">Tyrosine</tspan></tspan></tspan></text>
+        <text class="SVGTextShape"><tspan class="TextParagraph"><tspan class="TextPosition" x="5397" y="21283"><tspan font-family="맑은 고딕" font-size="247px" font-weight="700" lengthAdjust="spacingAndGlyphs" textLength="975" fill="rgb(255,255,255)" stroke="none" style="white-space: pre">Tyrosine</tspan></tspan></tspan></text>
        </g>
       </g>
       <g class="com.sun.star.drawing.CustomShape">
@@ -21939,7 +21939,7 @@
       <g class="com.sun.star.drawing.CustomShape">
        <g id="id2860">
         <rect class="BoundingBox" stroke="none" fill="none" x="7260" y="25403" width="2000" height="556"/>
-        <text class="SVGTextShape"><tspan class="TextParagraph"><tspan class="TextPosition" x="7904" y="25775"><tspan font-family="맑은 고딕" font-size="247px" font-weight="700" lengthAdjust="spacingAndGlyphs" textLength="713" fill="rgb(255,255,255)" stroke="none" style="white-space: pre">Lysine</tspan></tspan></tspan></text>
+        <text class="SVGTextShape"><tspan class="TextParagraph"><tspan class="TextPosition" x="7904" y="25775"><tspan font-family="맑은 고딕" font-size="247px" font-weight="700" lengthAdjust="spacingAndGlyphs" textLength="713" fill="rgb(0,176,240)" stroke="none" style="white-space: pre">Lysine</tspan></tspan></tspan></text>
        </g>
       </g>
       <g class="com.sun.star.drawing.ConnectorShape">
